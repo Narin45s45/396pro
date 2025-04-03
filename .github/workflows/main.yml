@@ -20,4 +20,4 @@ jobs:
         env:
           CLIENT_SECRETS: ${{ secrets.CLIENT_SECRETS }}
         run: |
-          python post_to_blogger.py
+          python au-p.py
