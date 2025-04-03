@@ -1,27 +1,21 @@
 import feedparser
 import os
 import json
-from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 # تنظیمات فید RSS
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
 
-# تنظیمات OAuth برای Blogger
-SCOPES = ["https://www.googleapis.com/auth/blogger"]
+# گرفتن توکن از متغیر محیطی
+creds_json = os.environ.get("CREDENTIALS")
+if not creds_json:
+    raise ValueError("CREDENTIALS پیدا نشد!")
 
-# گرفتن اطلاعات از متغیر محیطی
-client_secrets_json = os.environ.get("CLIENT_SECRETS")
-if not client_secrets_json:
-    raise ValueError("CLIENT_SECRETS پیدا نشد!")
-
-# تبدیل JSON به دیکشنری
-client_config = json.loads(client_secrets_json)
+# ساخت Credentials
+creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 
 # اتصال به Blogger API
-flow = Flow.from_client_config(client_config, SCOPES)
-flow.redirect_uri = "http://localhost"  # برای تست کافیه
-creds = flow.run_local_server(port=0)
 service = build("blogger", "v3", credentials=creds)
 
 # گرفتن اخبار از RSS
