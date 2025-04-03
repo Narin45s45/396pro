@@ -1,4 +1,4 @@
-name: Auto Post to Blogger
+name: narimantx
 on:
   schedule:
     - cron: "*/15 * * * *"  # هر ۱۵ دقیقه
