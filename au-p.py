@@ -34,7 +34,7 @@ content = latest_post.description
 link = latest_post.link
 
 # ساخت پست جدید
-blog_id = "YOUR_BLOG_ID"  # آیدی وبلاگتون رو بذارید
+blog_id = "764765195397447456"  # آیدی وبلاگتون رو بذارید
 post_body = {
     "kind": "blogger#post",
     "title": title,
