@@ -21,11 +21,6 @@ if not creds_json:
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
-# تابع تبدیل اعداد لاتین به فارسی
-def to_persian_numbers(text):
-    persian_nums = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
-    return text.translate(persian_nums)
-
 # تابع ترجمه با Gemini
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
@@ -37,41 +32,37 @@ def translate_with_gemini(text, target_lang="fa"):
     result = response.json()
     if "candidates" not in result:
         raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
-    translated_text = result["candidates"][0]["content"]["parts"][0]["text"]
-    return to_persian_numbers(translated_text)
+    return result["candidates"][0]["content"]["parts"][0]["text"]
 
 # گرفتن اخبار از RSS
 feed = feedparser.parse(RSS_FEED_URL)
 latest_post = feed.entries[0]
 
-# آماده‌سازی عنوان (ترجمه‌شده به فارسی)
-title = translate_with_gemini(latest_post.title)
-
 # آماده‌سازی متن پست
+title = latest_post.title
 content = ""
 
-# اضافه کردن عکس پوستر (وسط‌چین)
+# ترجمه عنوان
+translated_title = translate_with_gemini(title)
+
+# اضافه کردن عکس پوستر
 thumbnail = ""
 if hasattr(latest_post, 'media_content'):
     for media in latest_post.media_content:
         if 'url' in media:
-            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}"></div>'
+            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{translated_title}"></div>'
             break
 
-# فقط از content استفاده می‌کنیم و تکرار رو حذف می‌کنیم
-if hasattr(latest_post, 'content') and latest_post.content:
+# فقط از content استفاده می‌کنیم تا تکرار حذف بشه
+if 'content' in latest_post:
     for item in latest_post.content:
         if 'value' in item:
-            value = item['value'].split("Related Reading")[0].strip()  # حذف تکرار بعد از Related Reading
-            # وسط‌چین کردن عکس‌های داخل محتوا
-            value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
-            content = translate_with_gemini(value)  # ترجمه به فارسی
-            break
-else:
-    content = translate_with_gemini("محتوای اصلی پیدا نشد.")
+            value = item['value'].split("Related Reading")[0].strip()
+            content += f"<br>{translate_with_gemini(value)}"
+            break  # فقط اولین content رو می‌گیریم و میریم بیرون
 
-# جاستیفای کردن متن (بدون تغییر اضافی)
-full_content = f'{thumbnail}<br><div style="text-align:justify;">{content}</div>' if thumbnail else f'<div style="text-align:justify;">{content}</div>'
+# راست‌چین کردن متن
+full_content = f'{thumbnail}<br><div style="text-align:right;direction:rtl;">{content}</div>' if thumbnail else f'<div style="text-align:right;direction:rtl;">{content}</div>'
 
 link = latest_post.link
 
@@ -79,7 +70,7 @@ link = latest_post.link
 blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
-    "title": title,
+    "title": translated_title,
     "content": f"{full_content}<br><a href='{link}'>ادامه مطلب</a>"
 }
 
