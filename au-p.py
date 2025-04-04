@@ -26,30 +26,35 @@ latest_post = feed.entries[0]  # آخرین خبر
 title = latest_post.title
 content = ""
 
-# اضافه کردن description (اگه تگ <img> داشته باشه، خودش میاد)
+# اضافه کردن عکس پوستر (Thumbnail) اول محتوا
+thumbnail = ""
+if hasattr(latest_post, 'media_content'):
+    for media in latest_post.media_content:
+        if 'url' in media:
+            thumbnail = f'<img src="{media["url"]}" alt="{title}">'
+            break  # فقط اولین تصویر رو می‌گیره
+
+# اضافه کردن description
 if hasattr(latest_post, 'description'):
     content += latest_post.description
 
-# اضافه کردن محتوای کامل (اگه توی فید باشه)
+# اضافه کردن محتوای کامل (اگه باشه)
 if 'content' in latest_post:
     for item in latest_post.content:
         if 'value' in item:
             content += f"<br>{item['value']}"
 
-# اضافه کردن تصاویر از media_content (مثل پوستر)
-if hasattr(latest_post, 'media_content'):
-    for media in latest_post.media_content:
-        if 'url' in media:
-            content += f'<br><img src="{media["url"]}" alt="{title}">'
-
 link = latest_post.link
 
+# ترکیب محتوا با عکس پوستر در ابتدا
+full_content = f"{thumbnail}<br>{content}" if thumbnail else content
+
 # ساخت پست جدید
-blog_id = "764765195397447456"  # آیدی وبلاگتون
+blog_id = "764765195397447456"  # آیدی بلاگ شما
 post_body = {
     "kind": "blogger#post",
     "title": title,
-    "content": f"{content}<br><a href='{link}'>ادامه مطلب</a>"
+    "content": f"{full_content}<br><a href='{link}'>ادامه مطلب</a>"
 }
 
 # ارسال پست به بلاگر
