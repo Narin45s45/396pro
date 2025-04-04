@@ -32,17 +32,26 @@ if hasattr(latest_post, 'media_content'):
     for media in latest_post.media_content:
         if 'url' in media:
             thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}"></div>'
-            break  # فقط اولین تصویر
+            break
 
-# اضافه کردن description
+# اضافه کردن description و حذف "Related Reading"
 if hasattr(latest_post, 'description'):
-    content += latest_post.description
+    description = latest_post.description
+    # حذف "Related Reading" و هر چیزی بعدش
+    if "Related Reading" in description:
+        content += description.split("Related Reading")[0].strip()
+    else:
+        content += description
 
-# اضافه کردن محتوای کامل (اگه باشه)
+# اضافه کردن محتوای کامل (اگه باشه) و حذف "Related Reading"
 if 'content' in latest_post:
     for item in latest_post.content:
         if 'value' in item:
-            content += f"<br>{item['value']}"
+            value = item['value']
+            if "Related Reading" in value:
+                content += f"<br>{value.split('Related Reading')[0].strip()}"
+            else:
+                content += f"<br>{value}"
 
 # جاستیفای کردن متن
 full_content = f'{thumbnail}<br><div style="text-align:justify;">{content}</div>' if thumbnail else f'<div style="text-align:justify;">{content}</div>'
