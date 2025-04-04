@@ -26,12 +26,12 @@ latest_post = feed.entries[0]  # آخرین خبر
 title = latest_post.title
 content = ""
 
-# اضافه کردن عکس پوستر با عرض کامل
+# اضافه کردن عکس پوستر فقط با وسط‌چین
 thumbnail = ""
 if hasattr(latest_post, 'media_content'):
     for media in latest_post.media_content:
         if 'url' in media:
-            thumbnail = f'<img src="{media["url"]}" alt="{title}" style="width:100%;height:auto;">'
+            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}"></div>'
             break  # فقط اولین تصویر
 
 # اضافه کردن description
@@ -44,7 +44,7 @@ if 'content' in latest_post:
         if 'value' in item:
             content += f"<br>{item['value']}"
 
-# جاستیفای کردن کل محتوا
+# جاستیفای کردن متن
 full_content = f'{thumbnail}<br><div style="text-align:justify;">{content}</div>' if thumbnail else f'<div style="text-align:justify;">{content}</div>'
 
 link = latest_post.link
