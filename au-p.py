@@ -53,16 +53,25 @@ if hasattr(latest_post, 'media_content'):
             thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{translated_title}"></div>'
             break
 
-# فقط از content استفاده می‌کنیم تا تکرار حذف بشه
+# فقط از content استفاده می‌کنیم
 if 'content' in latest_post:
     for item in latest_post.content:
         if 'value' in item:
             value = item['value'].split("Related Reading")[0].strip()
+            # وسط‌چین کردن عکس‌های داخل متن
+            value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
             content += f"<br>{translate_with_gemini(value)}"
-            break  # فقط اولین content رو می‌گیریم و میریم بیرون
+            break
 
-# راست‌چین کردن متن
-full_content = f'{thumbnail}<br><div style="text-align:right;direction:rtl;">{content}</div>' if thumbnail else f'<div style="text-align:right;direction:rtl;">{content}</div>'
+# جاستیفای کردن متن و راست‌چین کردن عنوان
+full_content = (
+    f'<div style="text-align:right;direction:rtl;">{translated_title}</div>'  # عنوان راست‌چین
+    f'{thumbnail}<br>'
+    f'<div style="text-align:justify;direction:rtl;">{content}</div>'  # متن جاستیفای
+) if thumbnail else (
+    f'<div style="text-align:right;direction:rtl;">{translated_title}</div>'
+    f'<div style="text-align:justify;direction:rtl;">{content}</div>'
+)
 
 link = latest_post.link
 
