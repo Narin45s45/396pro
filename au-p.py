@@ -21,18 +21,24 @@ if not creds_json:
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
+# تابع تبدیل اعداد لاتین به فارسی
+def to_persian_numbers(text):
+    persian_nums = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+    return text.translate(persian_nums)
+
 # تابع ترجمه با Gemini
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
     payload = {
-        "contents": [{"parts": [{"text": f"Translate this to {target_lang}: {text}"}]}],
+        "contents": [{"parts": [{"text": f"Translate this to {target_lang} while preserving HTML tags: {text}"}]}],
         "generationConfig": {"temperature": 0.7}
     }
     response = requests.post(f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=payload)
     result = response.json()
     if "candidates" not in result:
         raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
-    return result["candidates"][0]["content"]["parts"][0]["text"]
+    translated_text = result["candidates"][0]["content"]["parts"][0]["text"]
+    return to_persian_numbers(translated_text)  # تبدیل اعداد به فارسی
 
 # گرفتن اخبار از RSS
 feed = feedparser.parse(RSS_FEED_URL)
@@ -52,14 +58,14 @@ if hasattr(latest_post, 'media_content'):
             thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}"></div>'
             break
 
-# گرفتن محتوا از content و ترجمه
+# گرفتن محتوا از content و ترجمه با حفظ تگ‌های HTML
 if hasattr(latest_post, 'content') and latest_post.content:
     for item in latest_post.content:
         if 'value' in item:
             content = item['value']
             # وسط‌چین کردن عکس‌ها
             content = content.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
-            content = translate_with_gemini(content)  # ترجمه کل محتوا
+            content = translate_with_gemini(content)  # ترجمه با حفظ HTML
             break
 else:
     content = translate_with_gemini("محتوای اصلی پیدا نشد.")
@@ -73,17 +79,17 @@ if hasattr(latest_post, 'description'):
         translated_last_sentence = translate_with_gemini(last_sentence)
         content += f"<br><p>{translated_last_sentence}</p>"
 
-# راست‌چین کردن متن
-full_content = f'{thumbnail}<br><div style="text-align:right; direction:rtl;">{content}</div>' if thumbnail else f'<div style="text-align:right; direction:rtl;">{content}</div>'
+# راست‌چین کردن متن با فونت IRANSans
+full_content = f'{thumbnail}<br><div style="text-align:right; direction:rtl; font-family:\'IRANSans\';">{content}</div>' if thumbnail else f'<div style="text-align:right; direction:rtl; font-family:\'IRANSans\';">{content}</div>'
 
 link = latest_post.link
 
-# ساخت پست جدید
+# ساخت پست جدید با عنوان راست‌چین
 blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
-    "title": title,
-    "content": f'{full_content}<br><a href="{link}" style="font-family: \'IRANSansfanum\';">منبع</a>'
+    "title": f'<span style="direction:rtl; font-family:\'IRANSans\';">{title}</span>',
+    "content": f'{full_content}<br><a href="{link}" style="font-family:\'IRANSans\';">منبع</a>'
 }
 
 # ارسال پست
