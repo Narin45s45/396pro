@@ -9,7 +9,7 @@ from googleapiclient.discovery import build
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
 
 # تنظیمات API Gemini
-GEMINI_API_KEY = os.environ.get("GEMAPI")  # از متغیر محیطی می‌خونه
+GEMINI_API_KEY = os.environ.get("GEMAPI")
 if not GEMINI_API_KEY:
     raise ValueError("GEMAPI پیدا نشد!")
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
@@ -30,6 +30,9 @@ def translate_with_gemini(text, target_lang="fa"):
     }
     response = requests.post(f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=payload)
     result = response.json()
+    print("API Response:", json.dumps(result, indent=2))  # پاسخ کامل رو چاپ می‌کنه
+    if "candidates" not in result:
+        raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
     return result["candidates"][0]["content"]["parts"][0]["text"]
 
 # گرفتن اخبار از RSS
