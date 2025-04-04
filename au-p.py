@@ -30,17 +30,21 @@ if hasattr(latest_post, 'media_content'):
             thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}"></div>'
             break
 
-# گرفتن Summary (کامل‌تره و جمله انتهایی رو داره)
-if hasattr(latest_post, 'summary'):
-    content = latest_post.summary
-    # وسط‌چین کردن عکس‌ها
-    content = content.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
-elif hasattr(latest_post, 'content') and latest_post.content:  # اگه Summary نبود، Content
+# گرفتن محتوا از content (برای عکس‌ها و فرمت HTML)
+if hasattr(latest_post, 'content') and latest_post.content:
     for item in latest_post.content:
         if 'value' in item:
             content = item['value']
+            # وسط‌چین کردن عکس‌ها
             content = content.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
             break
+else:
+    content = "محتوای اصلی پیدا نشد."
+
+# اضافه کردن description کامل
+if hasattr(latest_post, 'description'):
+    description = latest_post.description
+    content += f"<br><div>{description}</div>"
 
 # جاستیفای کردن متن
 full_content = f'{thumbnail}<br><div style="text-align:justify;">{content}</div>' if thumbnail else f'<div style="text-align:justify;">{content}</div>'
