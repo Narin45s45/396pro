@@ -44,7 +44,7 @@ def translate_with_gemini(text, target_lang="fa"):
 feed = feedparser.parse(RSS_FEED_URL)
 latest_post = feed.entries[0]
 
-# آماده‌سازی عنوان (ترجمه‌شده و بدون تگ HTML)
+# آماده‌سازی عنوان (ترجمه‌شده)
 title = translate_with_gemini(latest_post.title)
 
 # آماده‌سازی متن پست
@@ -58,7 +58,7 @@ if hasattr(latest_post, 'media_content'):
             thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}"></div>'
             break
 
-# گرفتن محتوا از content و ترجمه با حفظ ساختار
+# گرفتن محتوا از content و ترجمه با حفظ عکس‌ها
 if hasattr(latest_post, 'content') and latest_post.content:
     for item in latest_post.content:
         if 'value' in item:
@@ -79,16 +79,22 @@ if hasattr(latest_post, 'description'):
         translated_last_sentence = translate_with_gemini(last_sentence)
         content += f"<br><p>{translated_last_sentence}</p>"
 
-# راست‌چین کردن متن با فونت IRANSans
-full_content = f'{thumbnail}<br><div style="text-align:right; direction:rtl; font-family:\'IRANSans\';">{content}</div>' if thumbnail else f'<div style="text-align:right; direction:rtl; font-family:\'IRANSans\';">{content}</div>'
+# جاستیفای و راست‌چین کردن متن با فونت IRANSans
+full_content = (
+    f'<div style="text-align:justify; direction:rtl; font-family:\'IRANSans\';">'
+    f'<b>{title}</b><br>'  # عنوان بولد و راست‌چین
+    f'{thumbnail}<br>'
+    f'{content}'
+    f'</div>'
+)
 
 link = latest_post.link
 
-# ساخت پست جدید (عنوان بدون تگ HTML)
+# ساخت پست جدید
 blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
-    "title": title,  # فقط متن ساده
+    "title": title,  # عنوان ساده برای بلاگر
     "content": f'{full_content}<br><a href="{link}" style="font-family:\'IRANSans\';">منبع</a>'
 }
 
