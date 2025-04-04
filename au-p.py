@@ -63,9 +63,9 @@ if 'content' in latest_post:
             content += f"<br>{translate_with_gemini(value)}"
             break
 
-# جاستیفای کردن متن و راست‌چین کردن عنوان
+# جاستیفای کردن متن و راست‌چین کردن عنوان توی محتوا
 full_content = (
-    f'<div style="text-align:right;direction:rtl;">{translated_title}</div>'  # عنوان راست‌چین
+    f'<div style="text-align:right;direction:rtl;">{translated_title}</div>'  # عنوان راست‌چین توی محتوا
     f'{thumbnail}<br>'
     f'<div style="text-align:justify;direction:rtl;">{content}</div>'  # متن جاستیفای
 ) if thumbnail else (
@@ -75,11 +75,11 @@ full_content = (
 
 link = latest_post.link
 
-# ساخت پست جدید (عنوان فقط توی محتوا می‌ره، توی title نمی‌ذارم تا تکرار نشه)
+# ساخت پست جدید (عنوان توی پیش‌نمایش هم باشه)
 blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
-    "title": "",  # خالی می‌ذارم تا فقط توی محتوا باشه
+    "title": translated_title,  # عنوان توی پیش‌نمایش
     "content": f"{full_content}<br><a href='{link}'>ادامه مطلب</a>"
 }
 
