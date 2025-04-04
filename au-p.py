@@ -24,23 +24,28 @@ latest_post = feed.entries[0]  # آخرین خبر
 
 # آماده‌سازی متن پست
 title = latest_post.title
-content = latest_post.description
+content = ""
 
-# چک کردن و اضافه کردن تصویر (اگه توی فید باشه)
-if hasattr(latest_post, 'media_content'):  # برای تگ <media:content>
+# اضافه کردن description (اگه تگ <img> داشته باشه، خودش میاد)
+if hasattr(latest_post, 'description'):
+    content += latest_post.description
+
+# اضافه کردن محتوای کامل (اگه توی فید باشه)
+if 'content' in latest_post:
+    for item in latest_post.content:
+        if 'value' in item:
+            content += f"<br>{item['value']}"
+
+# اضافه کردن تصاویر از media_content (مثل پوستر)
+if hasattr(latest_post, 'media_content'):
     for media in latest_post.media_content:
         if 'url' in media:
             content += f'<br><img src="{media["url"]}" alt="{title}">'
-elif 'content' in latest_post:  # برای تگ <content>
-    for item in latest_post.content:
-        if 'value' in item:
-            content += f'<br>{item["value"]}'
-# اگه توی description تگ <img> باشه، خودش میاد
 
 link = latest_post.link
 
 # ساخت پست جدید
-blog_id = "764765195397447456"  # آیدی وبلاگتون
+blog_id = "YOUR_BLOG_ID"  # آیدی وبلاگتون
 post_body = {
     "kind": "blogger#post",
     "title": title,
