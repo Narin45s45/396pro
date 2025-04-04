@@ -50,15 +50,15 @@ title = translate_with_gemini(latest_post.title)
 # آماده‌سازی متن پست
 content = ""
 
-# اضافه کردن عکس پوستر (وسط‌چین)
+# اضافه کردن عکس پوستر (وسط‌چین و عنوان راست‌چین)
 thumbnail = ""
 if hasattr(latest_post, 'media_content'):
     for media in latest_post.media_content:
         if 'url' in media:
-            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}"></div>'
+            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}" style="direction:rtl;"></div>'
             break
 
-# گرفتن محتوا از content و ترجمه با حفظ عکس‌ها
+# گرفتن محتوا فقط از content و ترجمه
 if hasattr(latest_post, 'content') and latest_post.content:
     for item in latest_post.content:
         if 'value' in item:
@@ -69,15 +69,6 @@ if hasattr(latest_post, 'content') and latest_post.content:
             break
 else:
     content = translate_with_gemini("محتوای اصلی پیدا نشد.")
-
-# اضافه کردن جمله آخر از description اگه توی content نباشه
-if hasattr(latest_post, 'description'):
-    description = latest_post.description
-    content_text = " ".join(content.replace('<', ' <').split()).replace('>', '').strip()
-    if "Featured image" in description and "Featured image" not in content_text:
-        last_sentence = description[description.find("Featured image"):].strip()
-        translated_last_sentence = translate_with_gemini(last_sentence)
-        content += f"<br><p>{translated_last_sentence}</p>"
 
 # جاستیفای و راست‌چین کردن متن با فونت IRANSans
 full_content = (
@@ -94,7 +85,7 @@ link = latest_post.link
 blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
-    "title": title,  # عنوان ساده برای بلاگر
+    "title": title,  # عنوان ساده
     "content": f'{full_content}<br><a href="{link}" style="font-family:\'IRANSans\';">منبع</a>'
 }
 
