@@ -58,23 +58,20 @@ if hasattr(latest_post, 'media_content'):
             thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}"></div>'
             break
 
-# اضافه کردن محتوا (فقط یکی از description یا content برای جلوگیری از تکرار)
-if hasattr(latest_post, 'content') and latest_post.content:  # اولویت با content
+# فقط از content استفاده می‌کنیم و تکرار رو حذف می‌کنیم
+if hasattr(latest_post, 'content') and latest_post.content:
     for item in latest_post.content:
         if 'value' in item:
-            value = item['value'].split("Related Reading")[0].strip()
+            value = item['value'].split("Related Reading")[0].strip()  # حذف تکرار بعد از Related Reading
             # وسط‌چین کردن عکس‌های داخل محتوا
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
             content = translate_with_gemini(value)  # ترجمه به فارسی
             break
-elif hasattr(latest_post, 'description'):  # اگه content نبود، description
-    description = latest_post.description.split("Related Reading")[0].strip()
-    # وسط‌چین کردن عکس‌های داخل description
-    description = description.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
-    content = translate_with_gemini(description)  # ترجمه به فارسی
+else:
+    content = translate_with_gemini("محتوای اصلی پیدا نشد.")
 
-# جاستیفای و راست‌چین کردن متن (برای فارسی)
-full_content = f'{thumbnail}<br><div style="text-align:justify; direction:rtl;">{content}</div>' if thumbnail else f'<div style="text-align:justify; direction:rtl;">{content}</div>'
+# جاستیفای کردن متن (بدون تغییر اضافی)
+full_content = f'{thumbnail}<br><div style="text-align:justify;">{content}</div>' if thumbnail else f'<div style="text-align:justify;">{content}</div>'
 
 link = latest_post.link
 
