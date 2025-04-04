@@ -26,13 +26,13 @@ latest_post = feed.entries[0]  # آخرین خبر
 title = latest_post.title
 content = ""
 
-# اضافه کردن عکس پوستر (Thumbnail) اول محتوا
+# اضافه کردن عکس پوستر با عرض کامل
 thumbnail = ""
 if hasattr(latest_post, 'media_content'):
     for media in latest_post.media_content:
         if 'url' in media:
-            thumbnail = f'<img src="{media["url"]}" alt="{title}">'
-            break  # فقط اولین تصویر رو می‌گیره
+            thumbnail = f'<img src="{media["url"]}" alt="{title}" style="width:100%;height:auto;">'
+            break  # فقط اولین تصویر
 
 # اضافه کردن description
 if hasattr(latest_post, 'description'):
@@ -44,10 +44,10 @@ if 'content' in latest_post:
         if 'value' in item:
             content += f"<br>{item['value']}"
 
-link = latest_post.link
+# جاستیفای کردن کل محتوا
+full_content = f'{thumbnail}<br><div style="text-align:justify;">{content}</div>' if thumbnail else f'<div style="text-align:justify;">{content}</div>'
 
-# ترکیب محتوا با عکس پوستر در ابتدا
-full_content = f"{thumbnail}<br>{content}" if thumbnail else content
+link = latest_post.link
 
 # ساخت پست جدید
 blog_id = "764765195397447456"  # آیدی بلاگ شما
