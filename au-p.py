@@ -75,11 +75,11 @@ full_content = (
 
 link = latest_post.link
 
-# ساخت پست جدید
+# ساخت پست جدید (عنوان فقط توی محتوا می‌ره، توی title نمی‌ذارم تا تکرار نشه)
 blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
-    "title": translated_title,
+    "title": "",  # خالی می‌ذارم تا فقط توی محتوا باشه
     "content": f"{full_content}<br><a href='{link}'>ادامه مطلب</a>"
 }
 
