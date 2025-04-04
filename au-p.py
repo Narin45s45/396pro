@@ -40,7 +40,7 @@ elif 'content' in latest_post:  # برای تگ <content>
 link = latest_post.link
 
 # ساخت پست جدید
-blog_id = "YOUR_BLOG_ID"  # آیدی وبلاگتون
+blog_id = "764765195397447456"  # آیدی وبلاگتون
 post_body = {
     "kind": "blogger#post",
     "title": title,
