@@ -41,10 +41,23 @@ if hasattr(latest_post, 'content') and latest_post.content:
 else:
     content = "محتوای اصلی پیدا نشد."
 
-# اضافه کردن description کامل
+# اضافه کردن بخش غیرتکراری از description
 if hasattr(latest_post, 'description'):
     description = latest_post.description
-    content += f"<br><div>{description}</div>"
+    # تبدیل content به متن خام برای مقایسه (حذف تگ‌های HTML ساده)
+    content_text = " ".join(content.replace('<', ' <').split()).replace('>', '').strip()
+    description_text = description.strip()
+    
+    # پیدا کردن بخش‌هایی از description که توی content نیست
+    non_repeated = ""
+    if "Featured image" in description_text and "Featured image" not in content_text:
+        # گرفتن جمله آخر (از "Featured image" به بعد)
+        non_repeated = description_text[description_text.find("Featured image"):].strip()
+    elif description_text not in content_text:
+        non_repeated = description_text
+    
+    if non_repeated:
+        content += f"<br><p>{non_repeated}</p>"
 
 # جاستیفای کردن متن
 full_content = f'{thumbnail}<br><div style="text-align:justify;">{content}</div>' if thumbnail else f'<div style="text-align:justify;">{content}</div>'
