@@ -4,6 +4,7 @@ import json
 import requests
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+import re
 
 # تنظیمات فید RSS
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -34,6 +35,12 @@ def translate_with_gemini(text, target_lang="fa"):
         raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
     return result["candidates"][0]["content"]["parts"][0]["text"]
 
+# تابع حذف لینک‌های newsbtc
+def remove_newsbtc_links(text):
+    # پیدا کردن همه تگ‌های <a> و جایگزینی با متن داخلشون اگه به newsbtc اشاره دارن
+    pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
+    return re.sub(pattern, r'\2', text)
+
 # گرفتن اخبار از RSS
 feed = feedparser.parse(RSS_FEED_URL)
 latest_post = feed.entries[0]
@@ -60,27 +67,33 @@ if 'content' in latest_post:
             value = item['value'].split("Related Reading")[0].strip()
             # وسط‌چین کردن عکس‌های داخل متن
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
+            # حذف لینک‌های newsbtc قبل از ترجمه
+            value = remove_newsbtc_links(value)
             content += f"<br>{translate_with_gemini(value)}"
             break
 
-# جاستیفای کردن متن و راست‌چین کردن عنوان توی محتوا
+# جاستیفای کردن متن (عنوان رو توی محتوا نمی‌ذارم)
 full_content = (
-    f'<div style="text-align:right;direction:rtl;">{translated_title}</div>'  # عنوان راست‌چین توی محتوا
     f'{thumbnail}<br>'
-    f'<div style="text-align:justify;direction:rtl;">{content}</div>'  # متن جاستیفای
-) if thumbnail else (
-    f'<div style="text-align:right;direction:rtl;">{translated_title}</div>'
     f'<div style="text-align:justify;direction:rtl;">{content}</div>'
+    f'<div style="text-align:right;direction:rtl;">'
+    f'<a href="{latest_post.link}">منبع</a>'
+    f'</div>'
+) if thumbnail else (
+    f'<div style="text-align:justify;direction:rtl;">{content}</div>'
+    f'<div style="text-align:right;direction:rtl;">'
+    f'<a href="{latest_post.link}">منبع</a>'
+    f'</div>'
 )
 
 link = latest_post.link
 
-# ساخت پست جدید (عنوان توی پیش‌نمایش هم باشه)
+# ساخت پست جدید (عنوان فقط توی پیش‌نمایش)
 blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
     "title": translated_title,  # عنوان توی پیش‌نمایش
-    "content": f"{full_content}<br><a href='{link}'>ادامه مطلب</a>"
+    "content": full_content
 }
 
 # ارسال پست
