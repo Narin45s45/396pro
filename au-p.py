@@ -21,6 +21,11 @@ if not creds_json:
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
+# تابع تبدیل اعداد لاتین به فارسی
+def to_persian_numbers(text):
+    persian_nums = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+    return text.translate(persian_nums)
+
 # تابع ترجمه با Gemini
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
@@ -32,41 +37,44 @@ def translate_with_gemini(text, target_lang="fa"):
     result = response.json()
     if "candidates" not in result:
         raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
-    return result["candidates"][0]["content"]["parts"][0]["text"]
+    translated_text = result["candidates"][0]["content"]["parts"][0]["text"]
+    return to_persian_numbers(translated_text)
 
 # گرفتن اخبار از RSS
 feed = feedparser.parse(RSS_FEED_URL)
 latest_post = feed.entries[0]
 
+# آماده‌سازی عنوان (ترجمه‌شده به فارسی)
+title = translate_with_gemini(latest_post.title)
+
 # آماده‌سازی متن پست
-title = latest_post.title
 content = ""
 
-# ترجمه عنوان
-translated_title = translate_with_gemini(title)
-
-# اضافه کردن عکس پوستر
+# اضافه کردن عکس پوستر (وسط‌چین)
 thumbnail = ""
 if hasattr(latest_post, 'media_content'):
     for media in latest_post.media_content:
         if 'url' in media:
-            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{translated_title}"></div>'
+            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}"></div>'
             break
 
-# اضافه کردن و ترجمه description
-if hasattr(latest_post, 'description'):
-    description = latest_post.description.split("Related Reading")[0].strip()
-    content += translate_with_gemini(description)
-
-# اضافه کردن و ترجمه content
-if 'content' in latest_post:
+# اضافه کردن محتوا (فقط یکی از description یا content برای جلوگیری از تکرار)
+if hasattr(latest_post, 'content') and latest_post.content:  # اولویت با content
     for item in latest_post.content:
         if 'value' in item:
             value = item['value'].split("Related Reading")[0].strip()
-            content += f"<br>{translate_with_gemini(value)}"
+            # وسط‌چین کردن عکس‌های داخل محتوا
+            value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
+            content = translate_with_gemini(value)  # ترجمه به فارسی
+            break
+elif hasattr(latest_post, 'description'):  # اگه content نبود، description
+    description = latest_post.description.split("Related Reading")[0].strip()
+    # وسط‌چین کردن عکس‌های داخل description
+    description = description.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
+    content = translate_with_gemini(description)  # ترجمه به فارسی
 
-# راست‌چین کردن متن
-full_content = f'{thumbnail}<br><div style="text-align:right;direction:rtl;">{content}</div>' if thumbnail else f'<div style="text-align:right;direction:rtl;">{content}</div>'
+# جاستیفای و راست‌چین کردن متن (برای فارسی)
+full_content = f'{thumbnail}<br><div style="text-align:justify; direction:rtl;">{content}</div>' if thumbnail else f'<div style="text-align:justify; direction:rtl;">{content}</div>'
 
 link = latest_post.link
 
@@ -74,7 +82,7 @@ link = latest_post.link
 blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
-    "title": translated_title,
+    "title": title,
     "content": f"{full_content}<br><a href='{link}'>ادامه مطلب</a>"
 }
 
