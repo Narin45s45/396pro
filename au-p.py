@@ -30,18 +30,24 @@ if hasattr(latest_post, 'media_content'):
             thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}"></div>'
             break
 
-# اضافه کردن محتوا (فقط یکی از description یا content برای جلوگیری از تکرار)
-if hasattr(latest_post, 'content') and latest_post.content:  # اولویت با content
+# اضافه کردن محتوا (ترکیب description و content بدون قطع کردن انتها)
+if hasattr(latest_post, 'content') and latest_post.content:
     for item in latest_post.content:
         if 'value' in item:
-            value = item['value'].split("Related Reading")[0].strip()
-            # وسط‌چین کردن عکس‌های داخل محتوا
+            value = item['value']
+            # حذف "Related Reading" و بعدش
+            if "Related Reading" in value:
+                value = value.split("Related Reading")[0].strip()
+            # وسط‌چین کردن عکس‌ها
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
-            content = value  # فقط اینو نگه می‌داریم
+            content = value
             break
-elif hasattr(latest_post, 'description'):  # اگه content نبود، description
-    description = latest_post.description.split("Related Reading")[0].strip()
-    # وسط‌چین کردن عکس‌های داخل description
+elif hasattr(latest_post, 'description'):
+    description = latest_post.description
+    # حذف "Related Reading" و بعدش
+    if "Related Reading" in description:
+        description = description.split("Related Reading")[0].strip()
+    # وسط‌چین کردن عکس‌ها
     description = description.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
     content = description
 
