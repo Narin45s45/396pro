@@ -4,7 +4,6 @@ import json
 import requests
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-import re
 
 # تنظیمات فید RSS
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -22,11 +21,6 @@ if not creds_json:
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
-# تابع تبدیل اعداد لاتین به فارسی
-def to_persian_numbers(text):
-    persian_nums = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
-    return text.translate(persian_nums)
-
 # تابع ترجمه با Gemini
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
@@ -38,72 +32,41 @@ def translate_with_gemini(text, target_lang="fa"):
     result = response.json()
     if "candidates" not in result:
         raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
-    translated_text = result["candidates"][0]["content"]["parts"][0]["text"]
-    return to_persian_numbers(translated_text)
-
-# تابع جدا کردن و بازگرداندن تگ‌های HTML
-def preserve_html_tags(raw_content):
-    # جدا کردن تگ‌های img و h2
-    img_tags = re.findall(r'<img[^>]+>', raw_content)
-    h2_tags = re.findall(r'<h2[^>]*>.*?</h2>', raw_content, re.DOTALL)
-    
-    # جایگزینی موقت تگ‌ها با placeholder
-    temp_content = raw_content
-    for i, img in enumerate(img_tags):
-        temp_content = temp_content.replace(img, f"[[IMG{i}]]")
-    for i, h2 in enumerate(h2_tags):
-        temp_content = temp_content.replace(h2, f"[[H2{i}]]")
-    
-    # ترجمه متن بدون تگ‌ها
-    translated_content = translate_with_gemini(temp_content)
-    
-    # برگرداندن تگ‌ها
-    for i, img in enumerate(img_tags):
-        translated_content = translated_content.replace(f"[[IMG{i}]]", img.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" '))
-    for i, h2 in enumerate(h2_tags):
-        # فقط متن داخل h2 رو ترجمه می‌کنیم
-        h2_text = re.search(r'<h2[^>]*>(.*?)</h2>', h2, re.DOTALL).group(1)
-        translated_h2_text = translate_with_gemini(h2_text)
-        translated_content = translated_content.replace(f"[[H2{i}]]", f'<h2>{translated_h2_text}</h2>')
-    
-    return translated_content
+    return result["candidates"][0]["content"]["parts"][0]["text"]
 
 # گرفتن اخبار از RSS
 feed = feedparser.parse(RSS_FEED_URL)
 latest_post = feed.entries[0]
 
-# آماده‌سازی عنوان (ترجمه‌شده، بدون بولد)
-title = translate_with_gemini(latest_post.title)
-
 # آماده‌سازی متن پست
+title = latest_post.title
 content = ""
 
-# اضافه کردن عکس پوستر (وسط‌چین و راست‌چین عنوان)
+# ترجمه عنوان
+translated_title = translate_with_gemini(title)
+
+# اضافه کردن عکس پوستر
 thumbnail = ""
 if hasattr(latest_post, 'media_content'):
     for media in latest_post.media_content:
         if 'url' in media:
-            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{title}" style="direction:rtl;"></div>'
+            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{translated_title}"></div>'
             break
 
-# گرفتن محتوا فقط از content و ترجمه با حفظ تگ‌ها
-if hasattr(latest_post, 'content') and latest_post.content:
+# اضافه کردن و ترجمه description
+if hasattr(latest_post, 'description'):
+    description = latest_post.description.split("Related Reading")[0].strip()
+    content += translate_with_gemini(description)
+
+# اضافه کردن و ترجمه content
+if 'content' in latest_post:
     for item in latest_post.content:
         if 'value' in item:
-            raw_content = item['value']
-            content = preserve_html_tags(raw_content)  # ترجمه با حفظ تگ‌ها
-            break
-else:
-    content = translate_with_gemini("محتوای اصلی پیدا نشد.")
+            value = item['value'].split("Related Reading")[0].strip()
+            content += f"<br>{translate_with_gemini(value)}"
 
-# جاستیفای و راست‌چین کردن متن با فونت IRANSans
-full_content = (
-    f'<div style="text-align:justify; direction:rtl; font-family:\'IRANSans\';">'
-    f'{title}<br>'  # عنوان بدون بولد
-    f'{thumbnail}<br>'
-    f'{content}'
-    f'</div>'
-)
+# راست‌چین کردن متن
+full_content = f'{thumbnail}<br><div style="text-align:right;direction:rtl;">{content}</div>' if thumbnail else f'<div style="text-align:right;direction:rtl;">{content}</div>'
 
 link = latest_post.link
 
@@ -111,8 +74,8 @@ link = latest_post.link
 blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
-    "title": title,  # عنوان ساده
-    "content": f'{full_content}<br><a href="{link}" style="font-family:\'IRANSans\';">منبع</a>'
+    "title": translated_title,
+    "content": f"{full_content}<br><a href='{link}'>ادامه مطلب</a>"
 }
 
 # ارسال پست
