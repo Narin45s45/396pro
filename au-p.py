@@ -65,8 +65,8 @@ if 'content' in latest_post:
             value = item['value'].split("Related Reading")[0].strip()
             content += f"<br>{translate_with_gemini(value)}"
 
-# جاستیفای کردن متن
-full_content = f'{thumbnail}<br><div style="text-align:justify;">{content}</div>' if thumbnail else f'<div style="text-align:justify;">{content}</div>'
+# راست‌چین کردن متن
+full_content = f'{thumbnail}<br><div style="text-align:right;direction:rtl;">{content}</div>' if thumbnail else f'<div style="text-align:right;direction:rtl;">{content}</div>'
 
 link = latest_post.link
 
