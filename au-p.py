@@ -22,11 +22,11 @@ if not creds_json:
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
-# تابع ترجمه با Gemini (دقیق‌تر)
+# تابع ترجمه با Gemini
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
     payload = {
-        "contents": [{"parts": [{"text": f"Please translate only the plain text to {target_lang}, preserving all HTML tags exactly as they are: {text}"}]}],
+        "contents": [{"parts": [{"text": f"Translate all plain text to {target_lang}, preserving all HTML tags exactly as they are, including text inside <blockquote> and other tags: {text}"}]}],
         "generationConfig": {"temperature": 0.7}
     }
     try:
@@ -36,8 +36,8 @@ def translate_with_gemini(text, target_lang="fa"):
             raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
         return result["candidates"][0]["content"]["parts"][0]["text"]
     except ValueError as e:
-        if "code': 429" in str(e):  # اگه خطای quota بود
-            return text  # متن بدون ترجمه
+        if "code': 429" in str(e):
+            return text
         raise
 
 # تابع حذف لینک‌های newsbtc
@@ -69,6 +69,8 @@ if 'content' in latest_post:
     for item in latest_post.content:
         if 'value' in item:
             value = item['value'].split("Related Reading")[0].strip()
+            # چاپ خام محتوا برای دیباگ
+            print("محتوای خام فید:", value)
             # وسط‌چین کردن عکس‌های داخل متن
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
             # حذف لینک‌های newsbtc
