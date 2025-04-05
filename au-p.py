@@ -5,6 +5,7 @@ import requests
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import re
+from difflib import SequenceMatcher
 
 # تنظیمات فید RSS
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -26,7 +27,7 @@ service = build("blogger", "v3", credentials=creds)
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
     payload = {
-        "contents": [{"parts": [{"text": f"Translate all plain text to {target_lang}, preserving all HTML tags exactly as they are, including text inside <blockquote> and other tags: {text}"}]}],
+        "contents": [{"parts": [{"text": f"Translate this text to {target_lang}: {text}"}]}],
         "generationConfig": {"temperature": 0.7}
     }
     try:
@@ -45,16 +46,30 @@ def remove_newsbtc_links(text):
     pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
     return re.sub(pattern, r'\2', text)
 
-# تابع ترجمه با حفظ تگ‌های <img>
-def translate_with_images(content):
-    img_tags = re.findall(r'<img[^>]+>', content)
-    temp_content = content
-    for i, img in enumerate(img_tags):
-        temp_content = temp_content.replace(img, f"[[IMG{i}]]")
-    translated_content = translate_with_gemini(temp_content)
-    for i, img in enumerate(img_tags):
-        translated_content = translated_content.replace(f"[[IMG{i}]]", img)
-    return translated_content
+# تابع بررسی شباهت دو متن
+def similarity(a, b):
+    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+# تابع حذف تگ‌های <h1> یا <h2> که شبیه عنوان هستن
+def remove_repeated_title(content, title):
+    headings = re.findall(r'<h[12]>(.*?)</h[12]>', content)
+    for heading in headings:
+        if similarity(heading, title) > 0.7:  # اگه شباهت بیشتر از 70% بود
+            content = content.replace(f'<h1>{heading}</h1>', '').replace(f'<h2>{heading}</h2>', '')
+    return content
+
+# تابع جدا کردن و ترجمه محتوا
+def translate_content(content):
+    # جدا کردن تگ‌های HTML
+    parts = re.split(r'(<[^>]+>)', content)
+    translated_parts = []
+    for part in parts:
+        if re.match(r'<[^>]+>', part):  # اگه تگ HTML بود
+            translated_parts.append(part)
+        else:  # اگه متن بود
+            translated_text = translate_with_gemini(part.strip())
+            translated_parts.append(translated_text)
+    return ''.join(translated_parts)
 
 # تابع اضافه کردن کپشن از alt تصاویر
 def add_captions_from_alt(content):
@@ -94,9 +109,10 @@ if 'content' in latest_post:
         if 'value' in item:
             value = item['value'].split("Related Reading")[0].strip()
             print("محتوای خام فید:", value)
+            value = remove_repeated_title(value, title)
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
             value = remove_newsbtc_links(value)
-            translated_content = translate_with_images(value)
+            translated_content = translate_content(value)
             content += f"<br>{add_captions_from_alt(translated_content)}"
             break
 
