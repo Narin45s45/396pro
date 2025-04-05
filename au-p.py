@@ -45,6 +45,28 @@ def remove_newsbtc_links(text):
     pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
     return re.sub(pattern, r'\2', text)
 
+# تابع حذف تگ‌های <h2> که عنوان رو تکرار می‌کنن
+def remove_repeated_title(content, title):
+    # فرض می‌کنیم عنوان توی <h2> یا <h1> تکرار شده
+    pattern = r'<h[12]>[^<]*' + re.escape(title) + '[^<]*</h[12]>'
+    return re.sub(pattern, '', content, flags=re.IGNORECASE)
+
+# تابع اضافه کردن کپشن از alt تصاویر
+def add_captions_from_alt(content):
+    # پیدا کردن همه تگ‌های <img>
+    img_tags = re.findall(r'<img[^>]+>', content)
+    for img in img_tags:
+        # گرفتن متن alt
+        alt_match = re.search(r'alt=["\'](.*?)["\']', img)
+        if alt_match:
+            alt_text = alt_match.group(1)
+            # ترجمه متن alt
+            translated_alt = translate_with_gemini(alt_text)
+            # اضافه کردن کپشن زیر تصویر
+            caption = f'<div style="text-align:center;direction:rtl;font-style:italic;">{translated_alt}</div>'
+            content = content.replace(img, f'{img}{caption}')
+    return content
+
 # گرفتن اخبار از RSS
 feed = feedparser.parse(RSS_FEED_URL)
 latest_post = feed.entries[0]
@@ -55,6 +77,8 @@ content = ""
 
 # ترجمه عنوان
 translated_title = translate_with_gemini(title)
+# حذف تگ‌های احتمالی از عنوان
+translated_title = re.sub(r'<[^>]+>', '', translated_title)
 
 # اضافه کردن عکس پوستر
 thumbnail = ""
@@ -71,12 +95,16 @@ if 'content' in latest_post:
             value = item['value'].split("Related Reading")[0].strip()
             # چاپ خام محتوا برای دیباگ
             print("محتوای خام فید:", value)
+            # حذف تگ‌های <h2> که عنوان رو تکرار می‌کنن
+            value = remove_repeated_title(value, title)
             # وسط‌چین کردن عکس‌های داخل متن
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
             # حذف لینک‌های newsbtc
             value = remove_newsbtc_links(value)
             # ترجمه با حفظ تگ‌ها
-            content += f"<br>{translate_with_gemini(value)}"
+            translated_content = translate_with_gemini(value)
+            # اضافه کردن کپشن از alt تصاویر
+            content += f"<br>{add_captions_from_alt(translated_content)}"
             break
 
 # جاستیفای کردن متن
