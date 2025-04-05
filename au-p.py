@@ -22,11 +22,11 @@ if not creds_json:
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
-# تابع ترجمه با Gemini (با مدیریت خطا)
+# تابع ترجمه با Gemini (دقیق‌تر)
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
     payload = {
-        "contents": [{"parts": [{"text": f"Translate this to {target_lang}: {text}"}]}],
+        "contents": [{"parts": [{"text": f"Please translate only the plain text to {target_lang}, preserving all HTML tags exactly as they are: {text}"}]}],
         "generationConfig": {"temperature": 0.7}
     }
     try:
@@ -37,37 +37,13 @@ def translate_with_gemini(text, target_lang="fa"):
         return result["candidates"][0]["content"]["parts"][0]["text"]
     except ValueError as e:
         if "code': 429" in str(e):  # اگه خطای quota بود
-            return text  # متن بدون ترجمه برگردونده می‌شه
-        raise  # بقیه خطاها رو دوباره پرت کن
+            return text  # متن بدون ترجمه
+        raise
 
 # تابع حذف لینک‌های newsbtc
 def remove_newsbtc_links(text):
     pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
     return re.sub(pattern, r'\2', text)
-
-# تابع جدا کردن تگ‌ها و ترجمه
-def translate_with_tags(raw_content):
-    # جدا کردن تگ‌های img و figcaption
-    img_tags = re.findall(r'<img[^>]+>', raw_content)
-    figcaption_tags = re.findall(r'<figcaption[^>]*>.*?</figcaption>', raw_content, re.DOTALL)
-    
-    # جایگزینی موقت با placeholder
-    temp_content = raw_content
-    for i, img in enumerate(img_tags):
-        temp_content = temp_content.replace(img, f"[[IMG{i}]]")
-    for i, fig in enumerate(figcaption_tags):
-        temp_content = temp_content.replace(fig, f"[[FIG{i}]]")
-    
-    # ترجمه کل متن بدون تگ‌ها
-    translated_content = translate_with_gemini(temp_content)
-    
-    # برگرداندن تگ‌ها
-    for i, img in enumerate(img_tags):
-        translated_content = translated_content.replace(f"[[IMG{i}]]", img)
-    for i, fig in enumerate(figcaption_tags):
-        translated_content = translated_content.replace(f"[[FIG{i}]]", fig)
-    
-    return translated_content
 
 # گرفتن اخبار از RSS
 feed = feedparser.parse(RSS_FEED_URL)
@@ -98,7 +74,7 @@ if 'content' in latest_post:
             # حذف لینک‌های newsbtc
             value = remove_newsbtc_links(value)
             # ترجمه با حفظ تگ‌ها
-            content += f"<br>{translate_with_tags(value)}"
+            content += f"<br>{translate_with_gemini(value)}"
             break
 
 # جاستیفای کردن متن
