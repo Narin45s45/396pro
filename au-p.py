@@ -35,41 +35,7 @@ def translate_with_gemini(text, target_lang="fa"):
         raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
     return result["candidates"][0]["content"]["parts"][0]["text"]
 
-# تابع جدا کردن و ترجمه متن با حفظ تگ‌ها
-def preserve_html_tags(raw_content):
-    # جدا کردن تگ‌های figcaption و a
-    figcaption_tags = re.findall(r'<figcaption[^>]*>.*?</figcaption>', raw_content, re.DOTALL)
-    a_tags = re.findall(r'<a[^>]*>.*?</a>', raw_content, re.DOTALL)
-    
-    # جایگزینی موقت با placeholder
-    temp_content = raw_content
-    for i, fig in enumerate(figcaption_tags):
-        temp_content = temp_content.replace(fig, f"[[FIG{i}]]")
-    for i, a in enumerate(a_tags):
-        temp_content = temp_content.replace(a, f"[[A{i}]]")
-    
-    # ترجمه متن بدون تگ‌ها
-    translated_content = translate_with_gemini(temp_content)
-    
-    # برگرداندن تگ‌ها با ترجمه متن داخلشون
-    for i, fig in enumerate(figcaption_tags):
-        fig_text = re.sub(r'<[^>]+>', '', fig)  # متن داخل figcaption
-        translated_fig_text = translate_with_gemini(fig_text)
-        translated_content = translated_content.replace(f"[[FIG{i}]]", f'<figcaption>{translated_fig_text}</figcaption>')
-    for i, a in enumerate(a_tags):
-        if 'newsbtc.com' in a:
-            a_text = re.sub(r'<[^>]+>', '', a)  # متن داخل <a>
-            translated_content = translated_content.replace(f"[[A{i}]]", a_text)  # لینک newsbtc خاموش می‌مونه
-        else:
-            a_text = re.sub(r'<[^>]+>', '', a)  # متن داخل <a>
-            translated_a_text = translate_with_gemini(a_text)
-            href_match = re.search(r'href=["\'](.*?)["\']', a)  # گرفتن href با regex
-            href = href_match.group(1) if href_match else ""
-            translated_content = translated_content.replace(f"[[A{i}]]", f'<a href="{href}">{translated_a_text}</a>')
-    
-    return translated_content
-
-# تابع حذف لینک‌های newsbtc (برای اطمینان بیشتر)
+# تابع حذف لینک‌های newsbtc
 def remove_newsbtc_links(text):
     pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
     return re.sub(pattern, r'\2', text)
@@ -100,9 +66,10 @@ if 'content' in latest_post:
             value = item['value'].split("Related Reading")[0].strip()
             # وسط‌چین کردن عکس‌های داخل متن
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
-            # حذف لینک‌های newsbtc و ترجمه با حفظ تگ‌ها
+            # حذف لینک‌های newsbtc
             value = remove_newsbtc_links(value)
-            content += f"<br>{preserve_html_tags(value)}"
+            # ترجمه کل محتوا یه بار
+            content += f"<br>{translate_with_gemini(value)}"
             break
 
 # جاستیفای کردن متن
