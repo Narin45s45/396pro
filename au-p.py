@@ -45,24 +45,33 @@ def remove_newsbtc_links(text):
     pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
     return re.sub(pattern, r'\2', text)
 
-# تابع حذف تگ‌های <h2> که عنوان رو تکرار می‌کنن
-def remove_repeated_title(content, title):
-    # فرض می‌کنیم عنوان توی <h2> یا <h1> تکرار شده
-    pattern = r'<h[12]>[^<]*' + re.escape(title) + '[^<]*</h[12]>'
-    return re.sub(pattern, '', content, flags=re.IGNORECASE)
+# تابع حذف اولین تگ <h1> یا <h2>
+def remove_first_heading(content):
+    return re.sub(r'<h[12]>[^<]*</h[12]>', '', content, count=1)
+
+# تابع ترجمه با حفظ تگ‌های <img>
+def translate_with_images(content):
+    # پیدا کردن همه تگ‌های <img>
+    img_tags = re.findall(r'<img[^>]+>', content)
+    # جایگزینی موقت با placeholder
+    temp_content = content
+    for i, img in enumerate(img_tags):
+        temp_content = temp_content.replace(img, f"[[IMG{i}]]")
+    # ترجمه متن بدون تگ‌های <img>
+    translated_content = translate_with_gemini(temp_content)
+    # برگرداندن تگ‌های <img>
+    for i, img in enumerate(img_tags):
+        translated_content = translated_content.replace(f"[[IMG{i}]]", img)
+    return translated_content
 
 # تابع اضافه کردن کپشن از alt تصاویر
 def add_captions_from_alt(content):
-    # پیدا کردن همه تگ‌های <img>
     img_tags = re.findall(r'<img[^>]+>', content)
     for img in img_tags:
-        # گرفتن متن alt
         alt_match = re.search(r'alt=["\'](.*?)["\']', img)
         if alt_match:
             alt_text = alt_match.group(1)
-            # ترجمه متن alt
             translated_alt = translate_with_gemini(alt_text)
-            # اضافه کردن کپشن زیر تصویر
             caption = f'<div style="text-align:center;direction:rtl;font-style:italic;">{translated_alt}</div>'
             content = content.replace(img, f'{img}{caption}')
     return content
@@ -77,7 +86,6 @@ content = ""
 
 # ترجمه عنوان
 translated_title = translate_with_gemini(title)
-# حذف تگ‌های احتمالی از عنوان
 translated_title = re.sub(r'<[^>]+>', '', translated_title)
 
 # اضافه کردن عکس پوستر
@@ -93,17 +101,11 @@ if 'content' in latest_post:
     for item in latest_post.content:
         if 'value' in item:
             value = item['value'].split("Related Reading")[0].strip()
-            # چاپ خام محتوا برای دیباگ
             print("محتوای خام فید:", value)
-            # حذف تگ‌های <h2> که عنوان رو تکرار می‌کنن
-            value = remove_repeated_title(value, title)
-            # وسط‌چین کردن عکس‌های داخل متن
+            value = remove_first_heading(value)
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
-            # حذف لینک‌های newsbtc
             value = remove_newsbtc_links(value)
-            # ترجمه با حفظ تگ‌ها
-            translated_content = translate_with_gemini(value)
-            # اضافه کردن کپشن از alt تصاویر
+            translated_content = translate_with_images(value)
             content += f"<br>{add_captions_from_alt(translated_content)}"
             break
 
