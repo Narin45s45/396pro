@@ -24,12 +24,16 @@ def remove_newsbtc_links(text):
 # تابع اضافه کردن کپشن از alt تصاویر
 def add_captions_from_alt(content):
     img_tags = re.findall(r'<img[^>]+>', content)
+    print(f"تصاویر پیدا شده: {img_tags}")
     for img in img_tags:
         alt_match = re.search(r'alt=["\'](.*?)["\']', img)
         if alt_match:
             alt_text = alt_match.group(1)
-            caption = f'<div style="text-align:center;font-style:italic;">{alt_text}</div>'
+            print(f"متن alt برای تصویر: {alt_text}")
+            caption = f'<p style="text-align:center;font-style:italic;">{alt_text}</p>'
             content = content.replace(img, f'{img}{caption}')
+        else:
+            print("متن alt پیدا نشد برای:", img)
     return content
 
 # تابع اطمینان از نمایش همه تصاویر
