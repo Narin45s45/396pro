@@ -13,7 +13,7 @@ RSS_FEED_URL = "https://www.newsbtc.com/feed/"
 GEMINI_API_KEY = os.environ.get("GEMAPI")
 if not GEMINI_API_KEY:
     raise ValueError("GEMAPI پیدا نشد!")
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 # گرفتن توکن بلاگر
 creds_json = os.environ.get("CREDENTIALS")
@@ -22,18 +22,23 @@ if not creds_json:
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
-# تابع ترجمه با Gemini
+# تابع ترجمه با Gemini (با مدیریت خطا)
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": f"Translate this to {target_lang}: {text}"}]}],
         "generationConfig": {"temperature": 0.7}
     }
-    response = requests.post(f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=payload)
-    result = response.json()
-    if "candidates" not in result:
-        raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
-    return result["candidates"][0]["content"]["parts"][0]["text"]
+    try:
+        response = requests.post(f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=payload)
+        result = response.json()
+        if "candidates" not in result:
+            raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
+        return result["candidates"][0]["content"]["parts"][0]["text"]
+    except ValueError as e:
+        if "code': 429" in str(e):  # اگه خطای quota بود
+            return text  # متن بدون ترجمه برگردونده می‌شه
+        raise  # بقیه خطاها رو دوباره پرت کن
 
 # تابع حذف لینک‌های newsbtc
 def remove_newsbtc_links(text):
@@ -116,7 +121,7 @@ link = latest_post.link
 blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
-    "title": translated_title,  # عنوان توی پیش‌نمایش
+    "title": translated_title,
     "content": full_content
 }
 
