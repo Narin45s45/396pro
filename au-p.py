@@ -28,27 +28,22 @@ if not creds_json:
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
-
-# تابع ترجمه با Gemini - تاکید بیشتر روی کپشن عکس
+# تابع ترجمه با Gemini - بازگشت به پرامپت قبلی (تمرکز بر کیفیت و فینگلیش)
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
 
-    # *** دستور دقیق‌تر با تاکید ویژه روی ترجمه کپشن عکس‌ها ***
+    # *** بازگشت به پرامپت قبلی ***
     prompt = (
-        f"Please translate the following English text (which might contain HTML tags like <img>, <p>, <blockquote>, <figure>, <figcaption>) "
-        f"into {target_lang} with the utmost intelligence and precision. Pay close attention to context and nuance.\n"
-        f"IMPORTANT TRANSLATION RULES:\n"
-        f"1. Translate ALL text content. This includes text inside paragraphs (<p>), list items (<li>), blockquotes (<blockquote>), headings (h1-h6), "
-        f"and ESPECIALLY image captions, whether they are in <figcaption> tags or in <p> tags immediately following an <img> tag. Do not skip any content.\n"
-        f"2. For technical terms or English words commonly used in the field (like cryptocurrency, finance, technology), "
-        f"transliterate them into Persian script (Finglish) instead of translating them into a potentially obscure Persian word. "
-        f"Example: 'Stochastic Oscillator' should become 'اوسیلاتور استوکستیک'. Apply consistently.\n"
-        f"3. Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
-        f"4. Preserve the original HTML structure (like <figure>, <img>, <figcaption>, <p>, <blockquote> tags and their relationships) as much as possible, "
-        f"only translating the text content within the tags.\n"
-        f"OUTPUT REQUIREMENT: Do not add any explanations, comments, or options. Only return the final, high-quality translated text "
-        f"(potentially including the original HTML tags with translated content).\n\n"
-        f"English Text with HTML to Translate:\n{text}"
+        f"Please translate the following English text into {target_lang} with the utmost intelligence and precision. "
+        f"Pay close attention to context and nuance.\n"
+        f"IMPORTANT INSTRUCTION: For technical terms or English words commonly used in the field "
+        f"(like cryptocurrency, finance, technology), transliterate them into Persian script (Finglish) "
+        f"instead of translating them into a potentially obscure Persian word. "
+        f"For example, translate 'Stochastic Oscillator' as 'اوسیلاتور استوکستیک'. "
+        f"Apply this transliteration rule consistently where appropriate.\n"
+        f"Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
+        f"OUTPUT REQUIREMENT: Do not add any explanations, comments, or options. Only return the final, high-quality translated text itself.\n\n"
+        f"English Text to Translate:\n{text}"
     )
 
     payload = {
@@ -116,7 +111,7 @@ def remove_newsbtc_links(text):
     return re.sub(pattern, r'\2', text, flags=re.IGNORECASE)
 
 # --- بقیه کد (گرفتن فید، پردازش محتوا، ارسال به بلاگر) ---
-# (بدون تغییر نسبت به نسخه قبلی)
+# (بدون تغییر نسبت به نسخه قبلی - بدون عنوان تکراری)
 
 # گرفتن اخبار از RSS
 print("در حال دریافت فید RSS...")
@@ -178,11 +173,12 @@ if content_source:
     content_cleaned = re.split(r'Related Reading|Read Also|See Also', content_source, flags=re.IGNORECASE)[0].strip()
     content_cleaned = remove_newsbtc_links(content_cleaned)
 
-    # **توجه:** ترجمه مستقیم HTML ریسک دارد.
-    print("در حال ترجمه محتوا (شامل HTML و با تاکید بر کپشن)...")
+    # **هشدار:** ترجمه مستقیم HTML همچنان ریسک از دست دادن ساختار (مانند کپشن) یا ترجمه نشدن بخش‌هایی (مانند blockquote) را دارد.
+    print("در حال ترجمه محتوا (شامل HTML)...")
     try:
         translated_html_content = translate_with_gemini(content_cleaned)
 
+        # اعمال استایل به عکس‌ها پس از ترجمه
         final_content_html = re.sub(r'<img\s+', '<img style="display:block;margin-left:auto;margin-right:auto;max-width:100%;height:auto;" ', translated_html_content, flags=re.IGNORECASE)
 
         content_html = final_content_html
