@@ -69,4 +69,77 @@ def add_captions_from_alt(content):
             print(f"متن alt برای تصویر: {alt_text}")
             if alt_text and not re.match(r'[\U0001F600-\U0001F64F]', alt_text):  # اگه alt خالی نیست و ایموجی نیست
                 translated_alt = translate_with_gemini(alt_text)
-                caption = f'<p styl
+                caption = f'<p style="text-align:center;direction:rtl;font-style:italic;">{translated_alt}</p>'
+                content = content.replace(img, f'{img}{caption}')
+        else:
+            print("متن alt پیدا نشد برای:", img)
+    return content
+
+# تابع اطمینان از نمایش همه تصاویر
+def ensure_images(content):
+    img_tags = re.findall(r'<img[^>]+>', content)
+    print(f"تعداد تصاویر توی فید: {len(img_tags)}")
+    return content
+
+# گرفتن اخبار از RSS
+feed = feedparser.parse(RSS_FEED_URL)
+latest_post = feed.entries[0]
+
+# آماده‌سازی متن پست
+title = latest_post.title
+content = ""
+
+# ترجمه عنوان
+translated_title = translate_with_gemini(title)
+translated_title = re.sub(r'<[^>]+>', '', translated_title)
+
+# اضافه کردن عکس پوستر
+thumbnail = ""
+if hasattr(latest_post, 'media_content'):
+    for media in latest_post.media_content:
+        if 'url' in media:
+            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{translated_title}"></div>'
+            break
+
+# فقط از content استفاده می‌کنیم
+if 'content' in latest_post:
+    for item in latest_post.content:
+        if 'value' in item:
+            value = item['value'].split("Related Reading")[0].strip()
+            print("محتوای خام فید:", value)
+            value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
+            value = remove_newsbtc_links(value)
+            value = ensure_images(value)
+            translated_content = translate_content(value)
+            content += f"<br>{add_captions_from_alt(translated_content)}"
+            break
+
+# جاستیفای کردن متن
+full_content = (
+    f'{thumbnail}<br>'
+    f'<div style="text-align:justify;direction:rtl;">{content}</div>'
+    f'<div style="text-align:right;direction:rtl;">'
+    f'<a href="{latest_post.link}" target="_blank">منبع</a>'
+    f'</div>'
+) if thumbnail else (
+    f'<div style="text-align:justify;direction:rtl;">{content}</div>'
+    f'<div style="text-align:right;direction:rtl;">'
+    f'<a href="{latest_post.link}" target="_blank">منبع</a>'
+    f'</div>'
+)
+
+link = latest_post.link
+
+# ساخت پست جدید
+blog_id = "764765195397447456"
+post_body = {
+    "kind": "blogger#post",
+    "title": translated_title,
+    "content": full_content
+}
+
+# ارسال پست
+request = service.posts().insert(blogId=blog_id, body=post_body)
+response = request.execute()
+
+print("پست با موفقیت ارسال شد:", response["url"])
