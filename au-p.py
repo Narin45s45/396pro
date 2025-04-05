@@ -61,9 +61,11 @@ def preserve_html_tags(raw_content):
             a_text = re.sub(r'<[^>]+>', '', a)  # متن داخل <a>
             translated_content = translated_content.replace(f"[[A{i}]]", a_text)  # لینک newsbtc خاموش می‌مونه
         else:
-            a_text = re.sub(r'<[^>]+>', '', a)
+            a_text = re.sub(r'<[^>]+>', '', a)  # متن داخل <a>
             translated_a_text = translate_with_gemini(a_text)
-            translated_content = translated_content.replace(f"[[A{i}]]", f'<a href="{a.split(\'href="\')[1].split(\'"\')[0]}">{translated_a_text}</a>')
+            href_match = re.search(r'href=["\'](.*?)["\']', a)  # گرفتن href با regex
+            href = href_match.group(1) if href_match else ""
+            translated_content = translated_content.replace(f"[[A{i}]]", f'<a href="{href}">{translated_a_text}</a>')
     
     return translated_content
 
