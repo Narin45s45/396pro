@@ -6,6 +6,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import re
 # import time # ممکن است برای تاخیر بین درخواست‌ها نیاز باشد
+# from bs4 import BeautifulSoup # اگر نیاز به پارس کردن HTML باشد، این خط را فعال کنید و pip install beautifulsoup4
 
 # تنظیمات فید RSS
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -26,62 +27,56 @@ if not creds_json:
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
-# تابع ترجمه با Gemini - با دستور دقیق‌تر برای کیفیت و فینگلیش
+# تابع ترجمه با Gemini - تاکید بیشتر روی تگ‌های خاص مثل blockquote
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
 
-    # *** دستور بسیار دقیق‌تر برای ترجمه با کیفیت بالا و فینگلیش اصطلاحات فنی ***
+    # *** دستور دقیق‌تر با تاکید روی blockquote و سایر تگ‌ها ***
     prompt = (
-        f"Please translate the following English text into {target_lang} with the utmost intelligence and precision. "
-        f"Pay close attention to context and nuance.\n"
-        f"IMPORTANT INSTRUCTION: For technical terms or English words commonly used in the field "
-        f"(like cryptocurrency, finance, technology), transliterate them into Persian script (Finglish) "
-        f"instead of translating them into a potentially obscure Persian word. "
-        f"For example, translate 'Stochastic Oscillator' as 'اوسیلاتور استوکستیک', not a direct Persian translation. "
-        f"Apply this transliteration rule consistently where appropriate.\n"
-        f"Ensure that any text within quotation marks is also accurately translated.\n"
-        f"Do not add any explanations, comments, or options. Only return the final, high-quality translated text itself.\n\n"
-        f"English Text to Translate:\n{text}"
+        f"Please translate the following English text (which might contain HTML tags) into {target_lang} "
+        f"with the utmost intelligence and precision. Pay close attention to context and nuance.\n"
+        f"IMPORTANT TRANSLATION RULES:\n"
+        f"1. Translate ALL text content, including text inside HTML tags like <p>, <li>, and especially <blockquote>. Do not skip any content.\n"
+        f"2. For technical terms or English words commonly used in the field (like cryptocurrency, finance, technology), "
+        f"transliterate them into Persian script (Finglish) instead of translating them into a potentially obscure Persian word. "
+        f"Example: 'Stochastic Oscillator' should become 'اوسیلاتور استوکستیک'. Apply consistently.\n"
+        f"3. Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
+        f"4. Preserve the original HTML structure as much as possible, only translating the text content within the tags.\n"
+        f"OUTPUT REQUIREMENT: Do not add any explanations, comments, or options. Only return the final, high-quality translated text (potentially including the original HTML tags with translated content).\n\n"
+        f"English Text with HTML to Translate:\n{text}"
     )
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
-             "temperature": 0.5 # کاهش دما می‌تواند به دقت بیشتر کمک کند
-             # "topP": 0.95,
-             # "topK": 40
+             "temperature": 0.5
          }
     }
 
     print(f"ارسال درخواست ترجمه به: {GEMINI_API_URL}")
-    # print(f"پرامپت ارسالی: {prompt}") # برای دیباگ پرامپت (در صورت نیاز از کامنت خارج کنید)
-    
-    # افزودن تلاش مجدد ساده در صورت خطای Rate Limit
+    # print(f"پرامپت ارسالی: {prompt}") # برای دیباگ
+
     max_retries = 2
-    retry_delay = 5 # ثانیه
+    retry_delay = 5
     for attempt in range(max_retries + 1):
         response = requests.post(f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=payload)
         print(f"کد وضعیت پاسخ API (تلاش {attempt+1}): {response.status_code}")
 
         if response.status_code == 200:
-            break # موفقیت آمیز بود، از حلقه خارج شو
-        elif response.status_code == 429: # خطای Rate Limit
+            break
+        elif response.status_code == 429 and attempt < max_retries:
             print(f"خطای Rate Limit (429). منتظر ماندن برای {retry_delay} ثانیه...")
             # time.sleep(retry_delay)
-            # retry_delay *= 2 # افزایش تاخیر برای تلاش بعدی (اختیاری)
-            # در آخرین تلاش، خطا را ایجاد کن
-            if attempt == max_retries:
-                 raise ValueError(f"خطا در درخواست API پس از {max_retries+1} تلاش: کد وضعیت {response.status_code}, پاسخ: {response.text}")
-        else: # سایر خطاها
-            raise ValueError(f"خطا در درخواست API: کد وضعیت {response.status_code}, پاسخ: {response.text}")
-    
-    # اگر حلقه بدون break تمام شد (که نباید اتفاق بیفتد مگر اینکه همه تلاش‌ها 429 باشند و آخرین تلاش هم خطا بدهد)
-    # این بخش برای اطمینان اضافه شده است
+            # retry_delay *= 2 # Optional: increase delay
+        else:
+            # در آخرین تلاش یا خطای دیگر، خطا را ایجاد کن
+             raise ValueError(f"خطا در درخواست API (تلاش {attempt+1}): کد وضعیت {response.status_code}, پاسخ: {response.text}")
+
     if response.status_code != 200:
          raise ValueError(f"ترجمه پس از {max_retries+1} تلاش ناموفق بود. آخرین کد وضعیت: {response.status_code}")
 
     result = response.json()
-    # print(f"پاسخ خام API: {json.dumps(result, indent=2, ensure_ascii=False)}") # برای دیباگ پاسخ
+    # print(f"پاسخ خام API: {json.dumps(result, indent=2, ensure_ascii=False)}") # برای دیباگ
 
     if 'error' in result:
         raise ValueError(f"خطا در API Gemini: {result['error'].get('message', 'جزئیات نامشخص')}")
@@ -91,25 +86,27 @@ def translate_with_gemini(text, target_lang="fa"):
              feedback = result.get('promptFeedback', {})
              block_reason = feedback.get('blockReason', 'نامشخص')
              safety_ratings = feedback.get('safetyRatings', [])
-             # جزئیات بیشتر در صورت بلاک شدن محتوا
              detailed_block_msg = f"API Response without candidates. Block Reason: {block_reason}. Safety Ratings: {safety_ratings}."
-             print(detailed_block_msg) # چاپ دلیل بلاک شدن برای بررسی
-             # نمایش متن اصلی که باعث بلاک شده (اگر لازم است)
-             # print(f"Blocked Text: {text}") 
+             print(detailed_block_msg)
              raise ValueError(detailed_block_msg + f" Full Response: {result}")
 
-        content = result["candidates"][0].get("content")
-        if not content or not content.get("parts"):
-             # بررسی اینکه آیا finishReason غیر از STOP بوده یا خیر
-             finish_reason = result["candidates"][0].get("finishReason", "نامشخص")
-             if finish_reason != "STOP":
-                 raise ValueError(f"ترجمه کامل نشد. دلیل توقف: {finish_reason}. پاسخ: {result}")
-             raise ValueError(f"ساختار 'content' یا 'parts' در پاسخ کاندیدا یافت نشد. پاسخ کامل: {result}")
-
+        # بررسی دقیق‌تر برای اطمینان از وجود محتوای متنی
+        candidate = result["candidates"][0]
+        content = candidate.get("content")
+        if not content or not content.get("parts") or not content["parts"][0].get("text"):
+             finish_reason = candidate.get("finishReason", "نامشخص")
+             # اگر دلیل توقف چیزی غیر از نرمال بود یا محتوا خالی بود
+             if finish_reason != "STOP" or not (content and content.get("parts") and content["parts"][0].get("text")):
+                  raise ValueError(f"ترجمه کامل نشد یا محتوای متنی در پاسخ وجود نداشت. دلیل توقف: {finish_reason}. پاسخ: {result}")
+        
         translated_text = content["parts"][0]["text"]
 
     except (IndexError, KeyError, TypeError) as e:
         raise ValueError(f"ساختار پاسخ API غیرمنتظره بود: {e}. پاسخ کامل: {result}")
+
+    # تلاش برای حذف پرامپت تکراری در خروجی (گاهی مدل‌ها این کار را می‌کنند)
+    # if prompt in translated_text:
+    #     translated_text = translated_text.replace(prompt, "").strip()
 
     return translated_text.strip()
 
@@ -119,8 +116,7 @@ def remove_newsbtc_links(text):
     pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
     return re.sub(pattern, r'\2', text, flags=re.IGNORECASE)
 
-# --- بقیه کد (گرفتن فید، پردازش محتوا، ارسال به بلاگر) ---
-# (بخش‌های اصلی پردازش و ارسال پست بدون تغییر نسبت به نسخه قبلی)
+# --- بقیه کد ---
 
 # گرفتن اخبار از RSS
 print("در حال دریافت فید RSS...")
@@ -140,6 +136,8 @@ content_html = "" # برای نگهداری HTML نهایی محتوا
 print("در حال ترجمه عنوان...")
 try:
     translated_title = translate_with_gemini(title)
+    # اطمینان از اینکه عنوان فقط یک خط است و شامل HTML اضافی نیست
+    translated_title = translated_title.splitlines()[0] 
     print(f"عنوان ترجمه شده: {translated_title}")
 except ValueError as e:
     print(f"خطا در ترجمه عنوان: {e}")
@@ -167,7 +165,6 @@ elif 'links' in latest_post:
                  thumbnail = f'<div style="text-align:center;"><img src="{thumbnail_url}" alt="{translated_title}" style="max-width:100%; height:auto;"></div>'
                  break
 
-
 # پردازش محتوا
 print("در حال پردازش محتوا...")
 content_source = None
@@ -179,23 +176,21 @@ elif 'description' in latest_post:
      content_source = latest_post.description
 
 if content_source:
-    # پاکسازی اولیه HTML قبل از ترجمه (حذف لینک‌های خاص، جداسازی بخش‌ها)
+    # پاکسازی اولیه HTML
     content_cleaned = re.split(r'Related Reading|Read Also|See Also', content_source, flags=re.IGNORECASE)[0].strip()
     content_cleaned = remove_newsbtc_links(content_cleaned)
-    # تنظیم استایل عکس‌ها قبل از ترجمه ممکن است روی تگ‌های ترجمه شده اثر نگذارد
-    # بهتر است استایل‌ها بعدا اعمال شوند یا با دقت بیشتری قبل از ترجمه انجام شوند.
-    # content_cleaned = re.sub(r'<img\s+', '<img style="display:block;margin-left:auto;margin-right:auto;max-width:100%;height:auto;" ', content_cleaned, flags=re.IGNORECASE) # موقتا غیرفعال
-
-    print("در حال ترجمه محتوا...")
+    
+    # **توجه:** ترجمه مستقیم HTML ریسک دارد. اگر این روش مشکل‌ساز شد،
+    # باید از BeautifulSoup برای استخراج متن، ترجمه متن و بازسازی HTML استفاده کرد.
+    print("در حال ترجمه محتوا (شامل HTML)...")
     try:
-        # ترجمه محتوای HTML (با دستور جدید)
         translated_html_content = translate_with_gemini(content_cleaned)
         
-        # پس-پردازش HTML ترجمه شده (مثلا اعمال استایل عکس)
-        # توجه: این regex ممکن است روی HTML ترجمه‌شده به درستی کار نکند اگر ساختار تگ‌ها تغییر کرده باشد.
+        # پس-پردازش: اعمال استایل به عکس‌ها در HTML ترجمه شده
+        # این فرض می‌کند تگ <img> و ساختار آن در ترجمه حفظ شده است
         final_content_html = re.sub(r'<img\s+', '<img style="display:block;margin-left:auto;margin-right:auto;max-width:100%;height:auto;" ', translated_html_content, flags=re.IGNORECASE)
         
-        content_html = final_content_html # استفاده از محتوای ترجمه و پس‌پردازش شده
+        content_html = final_content_html
         print("ترجمه و پس‌پردازش محتوا انجام شد.")
 
     except ValueError as e:
@@ -209,23 +204,30 @@ else:
     print("محتوایی برای پردازش یافت نشد.")
 
 
-# ساختار نهایی پست
+# ساختار نهایی پست با عنوان راست‌چین در بالا
 print("در حال ساختاردهی پست نهایی...")
 full_content_parts = []
+
+# *** اضافه کردن عنوان راست‌چین در ابتدای محتوای پست ***
+if translated_title:
+    # استفاده از h2 یا h3 برای عنوان داخل متن مناسب است
+    full_content_parts.append(f'<h2 style="text-align:right; direction:rtl;">{translated_title}</h2><br>') 
+
+# اضافه کردن تصویر شاخص (اگر وجود دارد)
 if thumbnail:
     full_content_parts.append(thumbnail)
     full_content_parts.append('<br>')
 
+# اضافه کردن محتوای اصلی ترجمه شده
 if content_html:
-    # محتوا حالا شامل HTML ترجمه شده است
     full_content_parts.append(f'<div style="text-align:justify;direction:rtl;">{content_html}</div>') 
 else:
      full_content_parts.append('<div style="text-align:center;direction:rtl;">[محتوای مقاله یافت نشد یا قابل پردازش نبود]</div>')
 
+# اضافه کردن لینک منبع
 post_link = getattr(latest_post, 'link', None)
 if post_link and (post_link.startswith('http://') or post_link.startswith('https://')):
     full_content_parts.append(f'<div style="text-align:right;direction:rtl;margin-top:15px;">')
-    # لینک منبع با target="_blank" (تایید شد که از قبل وجود داشت)
     full_content_parts.append(f'<a href="{post_link}" target="_blank" rel="noopener noreferrer">منبع</a>') 
     full_content_parts.append(f'</div>')
 else:
@@ -239,8 +241,8 @@ blog_id = "764765195397447456"
 post_body = {
     "kind": "blogger#post",
     "blog": {"id": blog_id},
-    "title": translated_title, # عنوان همچنان توسط فیلد title ارسال می‌شود
-    "content": full_content 
+    "title": translated_title, # عنوان اصلی برای نمایش در لیست پست‌ها و تگ <title> صفحه
+    "content": full_content    # محتوای کامل شامل عنوان راست‌چین شده در بالا
 }
 
 print("در حال ارسال پست به بلاگر...")
