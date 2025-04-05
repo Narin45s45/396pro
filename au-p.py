@@ -5,7 +5,7 @@ import requests
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import re
-# import time
+import time # Import time for sleep
 from bs4 import BeautifulSoup, NavigableString # Import BeautifulSoup
 
 # ... (تنظیمات اولیه و گرفتن توکن بدون تغییر) ...
@@ -20,72 +20,61 @@ creds_json = os.environ.get("CREDENTIALS"); assert creds_json, "CREDENTIALS پی
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
-# تابع ترجمه با Gemini - با دستور برای تکرار جداکننده
-def translate_with_gemini(text, target_lang="fa", separator=""):
-    # این تابع حالا متن ترکیبی را می‌گیرد
-    if not text or text.isspace():
-        return text
-        
+# تابع ترجمه با Gemini (پرامپت ساده برای متن خالص)
+def translate_with_gemini(text, target_lang="fa"):
+    if not text or text.isspace(): return text
     headers = {"Content-Type": "application/json"}
-
-    # *** دستور جدید با تاکید بر تکرار دقیق جداکننده ***
     prompt = (
-        f"Please translate the following English text segments (separated by '{separator}') into {target_lang} "
-        f"with the utmost intelligence and precision. Pay close attention to context and nuance.\n"
-        f"VERY IMPORTANT INSTRUCTION: Maintain the exact separator '{separator}' between each translated segment in your output. "
-        f"The number of separators in your output MUST match the number of separators in the input.\n"
-        f"FURTHER INSTRUCTIONS:\n"
-        f"- For technical terms or English words commonly used in the field (like cryptocurrency, finance, technology), "
-        f"transliterate them into Persian script (Finglish) instead of translating them. Example: 'Stochastic Oscillator' -> 'اوسیلاتور استوکستیک'. Apply consistently.\n"
-        f"- Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
-        f"OUTPUT REQUIREMENT: Do not add any explanations, comments, or options. Only return the translated segments separated by the exact separator '{separator}'.\n\n"
-        f"English Text Segments with Separator:\n{text}"
+        f"Please translate the following English text into {target_lang} with the utmost intelligence and precision. "
+        f"Pay close attention to context and nuance.\n"
+        f"IMPORTANT INSTRUCTION: For technical terms or English words commonly used in the field "
+        f"(like cryptocurrency, finance, technology), transliterate them into Persian script (Finglish) "
+        f"instead of translating them into a potentially obscure Persian word. "
+        f"Example: 'Stochastic Oscillator' should become 'اوسیلاتور استوکستیک'. "
+        f"Apply this transliteration rule consistently where appropriate.\n"
+        f"Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
+        f"OUTPUT REQUIREMENT: Do not add any explanations, comments, or options. Only return the final, high-quality translated text itself.\n\n"
+        f"English Text to Translate:\n{text}"
     )
-
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-             "temperature": 0.5 # دمای پایین‌تر ممکن است به دنبال کردن دستورات کمک کند
-         }
+        "generationConfig": {"temperature": 0.5}
     }
-
-    print(f"--- ارسال متن ترکیبی برای ترجمه (با جداکننده)...")
+    print(f"--- ارسال برای ترجمه: '{text[:70]}...'")
     max_retries = 1
-    retry_delay = 5
+    retry_delay = 3
     response = None
-    # ... (کد ارسال درخواست، تلاش مجدد و مدیریت خطای پایه مثل قبل) ...
     for attempt in range(max_retries + 1):
         try:
             response = requests.post(f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=payload, timeout=90) 
-            # print(f"--- کد وضعیت API (تلاش {attempt+1}): {response.status_code}") 
             response.raise_for_status() 
             if response.status_code == 200: break 
         except requests.exceptions.Timeout:
-             print(f"--- خطای Timeout در درخواست API (تلاش {attempt+1})")
+             print(f"--- خطای Timeout (تلاش {attempt+1})")
              if attempt == max_retries: raise ValueError(f"Timeout پس از {max_retries+1} تلاش")
-             # time.sleep(retry_delay)
+             time.sleep(retry_delay) # انتظار قبل از تلاش مجدد
              continue
         except requests.exceptions.RequestException as e:
-             print(f"--- خطای شبکه در درخواست API (تلاش {attempt+1}): {e}")
+             print(f"--- خطای شبکه (تلاش {attempt+1}): {e}")
              if attempt == max_retries: raise ValueError(f"خطای شبکه پس از {max_retries+1} تلاش: {e}") from e
-             # time.sleep(retry_delay) 
+             time.sleep(retry_delay) 
              continue 
         if response.status_code == 429 and attempt < max_retries:
-            print(f"--- خطای Rate Limit (429). انتظار...")
-            # time.sleep(retry_delay * (attempt + 1)) 
+            wait_time = retry_delay * (attempt + 2) # افزایش زمان انتظار
+            print(f"--- خطای Rate Limit (429). انتظار {wait_time} ثانیه...")
+            time.sleep(wait_time) 
         elif response.status_code != 200 : 
              if attempt == max_retries :
                  error_details = response.text
                  try: error_details = response.json()['error']['message'] 
                  except: pass
-                 print(f"--- خطای نهایی API در ترجمه متن ترکیبی") 
+                 print(f"--- خطای نهایی API در ترجمه متن: '{text[:70]}...'") 
                  raise ValueError(f"خطا در درخواست API (تلاش {attempt+1}): کد وضعیت {response.status_code}, پاسخ: {error_details}")
 
     if response is None or response.status_code != 200: raise ValueError(f"ترجمه پس از {max_retries+1} تلاش ناموفق بود.")
     result = response.json()
     if 'error' in result: raise ValueError(f"خطا در API Gemini: {result['error'].get('message', 'جزئیات نامشخص')}")
     try:
-        # ... (بررسی candidates و content مثل قبل) ...
         if not result.get("candidates"):
              feedback = result.get('promptFeedback', {})
              block_reason = feedback.get('blockReason', 'نامشخص')
@@ -94,17 +83,17 @@ def translate_with_gemini(text, target_lang="fa", separator=""):
         content = candidate.get("content")
         if not content or not content.get("parts") or not content["parts"][0].get("text"):
              finish_reason = candidate.get("finishReason", "نامشخص")
-             if text and not text.isspace():
+             if text and not text.isspace() and finish_reason == "STOP":
+                 print(f"--- هشدار: ترجمه متنی برای '{text[:50]}...' برنگرداند (خروجی خالی).")
+                 return "" 
+             elif text and not text.isspace():
                   raise ValueError(f"ترجمه کامل نشد یا خروجی خالی بود. دلیل توقف: {finish_reason}.")
-             else: return "" # ورودی خالی، خروجی خالی طبیعی است
-        
+             else: return "" 
         translated_text = content["parts"][0]["text"]
-        print(f"--- متن ترکیبی ترجمه شده دریافت شد.")
     except (IndexError, KeyError, TypeError, ValueError) as e: 
-        print(f"--- خطای پردازش پاسخ API برای متن ترکیبی: {e}")
+        print(f"--- خطای پردازش پاسخ API برای متن '{text[:50]}...': {e}")
         raise ValueError(f"ساختار پاسخ API نامعتبر یا خطا در بررسی آن: {e}. پاسخ کامل: {result}") from e
-    return translated_text.strip() # متن ترجمه شده ترکیبی را برمی‌گرداند
-
+    return translated_text.strip()
 
 # تابع حذف لینک‌های newsbtc (بدون تغییر)
 def remove_newsbtc_links(html_content):
@@ -114,6 +103,7 @@ def remove_newsbtc_links(html_content):
 # --- پردازش اصلی ---
 
 # گرفتن اخبار از RSS
+# ... (مثل قبل) ...
 print("در حال دریافت فید RSS...")
 feed = feedparser.parse(RSS_FEED_URL)
 if not feed.entries: print("هیچ پستی در فید RSS یافت نشد."); exit()
@@ -126,17 +116,17 @@ content_html = ""
 translated_title = title 
 
 # ترجمه عنوان (تک به تک)
+# ... (مثل قبل) ...
 print("در حال ترجمه عنوان...")
 try:
     if title and not title.isspace():
-        # برای عنوان، همچنان از ترجمه تک استفاده می‌کنیم
-        translated_title = translate_with_gemini(title, separator=None) # بدون جداکننده بفرست
+        translated_title = translate_with_gemini(title) # ارسال بدون جداکننده
         translated_title = translated_title.splitlines()[0]
     else: translated_title = "" 
     print(f"عنوان ترجمه شده: {translated_title}")
 except Exception as e:
     print(f"خطای غیرمنتظره در ترجمه عنوان: {e}")
-    # raise e # توقف اجرا در صورت خطای عنوان
+    # raise e # در صورت نیاز اجرای اسکریپت متوقف شود
 
 # اضافه کردن عکس پوستر
 # ... (مثل قبل) ...
@@ -154,9 +144,8 @@ elif 'links' in latest_post:
              if thumbnail_url and thumbnail_url.startswith(('http://', 'https://')):
                  thumbnail = f'<div style="text-align:center;"><img src="{thumbnail_url}" alt="{translated_title}" style="max-width:100%; height:auto;"></div>'; break
 
-
-# *** پردازش محتوا با BeautifulSoup (روش ترکیب و درخواست تکرار جداکننده) ***
-print("شروع پردازش محتوا با BeautifulSoup (روش تکرار جداکننده)...")
+# *** پردازش محتوا با BeautifulSoup (ترجمه تک به تک + تاخیر) ***
+print("شروع پردازش محتوا با BeautifulSoup (ترجمه تک به تک)...")
 content_source = None
 # ... (گرفتن content_source مثل قبل) ...
 if 'content' in latest_post and latest_post.content: content_source = latest_post.content[0]['value']
@@ -164,7 +153,7 @@ elif 'summary' in latest_post: content_source = latest_post.summary
 elif 'description' in latest_post: content_source = latest_post.description
 
 if content_source:
-    content_html = content_source # مقدار پیش‌فرض
+    content_html = content_source 
     soup = None
     
     try:
@@ -177,12 +166,10 @@ if content_source:
         print("--- پارس کردن HTML...")
         soup = BeautifulSoup(content_cleaned_html, 'html.parser')
 
-        # 3. استخراج متن‌ها و گره‌ها
-        print("--- استخراج متن‌ها و گره‌ها برای ترجمه...")
-        texts_to_translate = []
-        text_nodes_to_update = [] 
-        a_tags_to_update = []     
-        separator = "" # جداکننده جدید
+        # 3. استخراج گره‌ها و متن‌ها
+        print("--- استخراج گره‌ها و متن‌ها برای ترجمه...")
+        text_nodes_to_process = [] # List of (node, original_text)
+        a_tags_to_process = []    # List of (tag, original_text)
 
         text_parent_tags = ['p', 'li', 'blockquote', 'figcaption', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'em', 'strong', 'td', 'th']
         # استفاده از string=True
@@ -194,83 +181,71 @@ if content_source:
                 if curr.name == 'a': is_inside_a = True; break
                 curr = curr.parent
             if not is_inside_a and element.parent.name in text_parent_tags:
-                # اطمینان از اینکه خود جداکننده در متن اصلی نیست (خیلی بعید)
-                if separator in element_text:
-                     print(f"هشدار: جداکننده در متن اصلی یافت شد! متن: {element_text[:50]}...")
-                     # جایگزینی موقت جداکننده در متن اصلی
-                     element_text = element_text.replace(separator, "---") 
-                texts_to_translate.append(element_text)
-                text_nodes_to_update.append(element)
+                text_nodes_to_process.append((element, element_text))
 
         for a_tag in soup.find_all('a'):
             link_text = a_tag.get_text(" ", strip=True)
             if link_text: 
-                if separator in link_text:
-                     print(f"هشدار: جداکننده در متن لینک یافت شد! متن: {link_text[:50]}...")
-                     link_text = link_text.replace(separator, "---") 
-                texts_to_translate.append(link_text)
-                a_tags_to_update.append(a_tag)
+                a_tags_to_process.append((a_tag, link_text))
 
-        # 4. ترجمه متن‌های ترکیبی با درخواست تکرار جداکننده
-        if texts_to_translate:
-            print(f"--- تعداد {len(texts_to_translate)} بخش متنی یافت شد.")
-            combined_text = separator.join(texts_to_translate)
-            
-            # فراخوانی تابع ترجمه که حالا باید جداکننده را برگرداند
-            translated_combined_text = translate_with_gemini(combined_text, separator=separator)
-            
-            # 5. تقسیم پاسخ بر اساس جداکننده
-            # استفاده از regex برای تقسیم دقیق‌تر و حذف فضاهای خالی احتمالی اطراف جداکننده
-            # translated_segments = translated_combined_text.split(separator)
-            translated_segments = re.split(r'\s*' + re.escape(separator) + r'\s*', translated_combined_text)
+        print(f"--- یافت شد {len(text_nodes_to_process)} متن معمولی و {len(a_tags_to_process)} متن لینک.")
+        total_segments = len(text_nodes_to_process) + len(a_tags_to_process)
+        current_segment = 0
 
-            print(f"--- تعداد بخش‌های ترجمه شده پس از تقسیم: {len(translated_segments)}")
-            
-            # 6. بررسی تطابق تعداد و جایگزینی
-            if len(translated_segments) == len(texts_to_translate):
-                print("--- تعداد بخش‌ها مطابقت دارد. شروع جایگزینی...")
-                segment_index = 0
-                # جایگزینی متن‌های معمولی
-                for node in text_nodes_to_update:
-                    if node and hasattr(node, 'replace_with'):
-                        node.replace_with(NavigableString(translated_segments[segment_index]))
-                    else: print(f"هشدار: گره متن معمولی {segment_index} برای جایگزینی معتبر نبود.");
-                    segment_index += 1
-                # جایگزینی متن لینک‌ها
-                for a_tag in a_tags_to_update:
-                    a_tag.clear() 
-                    a_tag.append(NavigableString(translated_segments[segment_index]))
-                    segment_index += 1
-                print("--- جایگزینی متن کامل شد.")
+        # 4. ترجمه و جایگزینی تک به تک متن‌های معمولی + تاخیر
+        print(f"--- شروع ترجمه و جایگزینی {len(text_nodes_to_process)} متن معمولی...")
+        successful_text_translations = 0
+        for i, (node, original_text) in enumerate(text_nodes_to_process):
+            current_segment += 1
+            print(f"--- پردازش متن معمولی {current_segment}/{total_segments}...")
+            try:
+                translated_text = translate_with_gemini(original_text)
+                if node and hasattr(node, 'replace_with'): 
+                    node.replace_with(NavigableString(translated_text))
+                    successful_text_translations += 1
+                else: print(f"--- هشدار: گره متن معمولی {i+1} برای جایگزینی معتبر نبود.")
+                time.sleep(0.2) # *** تاخیر کوتاه بین درخواست‌ها ***
+            except Exception as e:
+                print(f"--- خطا در ترجمه/جایگزینی متن معمولی {i+1}: {e}. استفاده از متن اصلی.")
+                # متن اصلی دست نخورده باقی می‌ماند
+                # افزودن تاخیر حتی در صورت خطا برای جلوگیری از اسپم سریع
+                time.sleep(0.5) 
 
-                # 7. اعمال استایل به عکس‌ها
-                print("--- اعمال استایل به عکس‌ها...")
-                for img in soup.find_all('img'):
-                    img['style'] = f"display:block; margin-left:auto; margin-right:auto; max-width:100%; height:auto; {img.get('style', '')}"
+        print(f"--- ترجمه {successful_text_translations} از {len(text_nodes_to_process)} متن معمولی موفق بود.")
 
-                # 8. تبدیل سوپ اصلاح شده به رشته HTML
-                content_html = str(soup)
-                print("--- پردازش محتوا با BeautifulSoup کامل شد.")
+        # 5. ترجمه و جایگزینی تک به تک متن لینک‌ها + تاخیر
+        print(f"--- شروع ترجمه و جایگزینی {len(a_tags_to_process)} متن لینک...")
+        successful_link_translations = 0
+        for i, (a_tag, original_text) in enumerate(a_tags_to_process):
+            current_segment += 1
+            print(f"--- پردازش متن لینک {current_segment}/{total_segments}...")
+            try:
+                translated_text = translate_with_gemini(original_text)
+                a_tag.clear() 
+                a_tag.append(NavigableString(translated_text))
+                successful_link_translations +=1
+                time.sleep(0.2) # *** تاخیر کوتاه بین درخواست‌ها ***
+            except Exception as e:
+                print(f"--- خطا در ترجمه/جایگزینی متن لینک {i+1}: {e}. استفاده از متن اصلی.")
+                a_tag.clear()
+                a_tag.append(NavigableString(original_text))
+                time.sleep(0.5)
+        
+        print(f"--- ترجمه {successful_link_translations} از {len(a_tags_to_process)} متن لینک موفق بود.")
 
-            else:
-                # اگر تعداد مطابقت نداشت، یعنی مدل جداکننده را رعایت نکرده
-                error_message = f"خطا: عدم تطابق تعداد بخش‌ها! مدل جداکننده را رعایت نکرد. اصلی: {len(texts_to_translate)}, ترجمه شده: {len(translated_segments)}"
-                print(error_message)
-                print(f"--- متن اصلی ترکیبی (اولیه): {combined_text[:200]}...")
-                print(f"--- متن ترجمه شده ترکیبی (دریافتی): {translated_combined_text[:200]}...")
-                # استفاده از HTML تمیز شده بدون ترجمه
-                content_html = content_cleaned_html 
-                # توقف اجرا
-                raise ValueError(error_message) 
 
-        else:
-            print("--- هیچ متن قابل ترجمه‌ای در محتوا یافت نشد.")
-            content_html = soup.prettify() if soup else content_cleaned_html
+        # 6. اعمال استایل به عکس‌ها
+        print("--- اعمال استایل به عکس‌ها...")
+        for img in soup.find_all('img'):
+            img['style'] = f"display:block; margin-left:auto; margin-right:auto; max-width:100%; height:auto; {img.get('style', '')}"
+
+        # 7. تبدیل سوپ اصلاح شده به رشته HTML
+        content_html = str(soup)
+        print("--- پردازش محتوا با BeautifulSoup کامل شد.")
 
     except Exception as e:
          print(f"خطای شدید و غیرمنتظره در پردازش محتوا با BeautifulSoup: {e}")
-         # خطا را دوباره ایجاد می‌کنیم تا اجرای اکشن متوقف شود
-         raise e
+         raise e # توقف اجرا
 
 else:
     print("محتوایی برای پردازش یافت نشد.")
@@ -290,8 +265,9 @@ if post_link and post_link.startswith(('http://', 'https://')):
 else: print("لینک منبع معتبر یافت نشد.")
 full_content = "".join(full_content_parts)
 
+
 # ساخت و ارسال پست به بلاگر
-# ... (مثل قبل، با raise خطا در صورت مشکل) ...
+# ... (مثل قبل) ...
 blog_id = "764765195397447456"
 post_body = { "kind": "blogger#post", "blog": {"id": blog_id}, "title": translated_title, "content": full_content }
 print("در حال ارسال پست به بلاگر...")
