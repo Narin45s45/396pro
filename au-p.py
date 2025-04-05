@@ -45,21 +45,13 @@ def remove_newsbtc_links(text):
     pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
     return re.sub(pattern, r'\2', text)
 
-# تابع حذف اولین تگ <h1> یا <h2>
-def remove_first_heading(content):
-    return re.sub(r'<h[12]>[^<]*</h[12]>', '', content, count=1)
-
 # تابع ترجمه با حفظ تگ‌های <img>
 def translate_with_images(content):
-    # پیدا کردن همه تگ‌های <img>
     img_tags = re.findall(r'<img[^>]+>', content)
-    # جایگزینی موقت با placeholder
     temp_content = content
     for i, img in enumerate(img_tags):
         temp_content = temp_content.replace(img, f"[[IMG{i}]]")
-    # ترجمه متن بدون تگ‌های <img>
     translated_content = translate_with_gemini(temp_content)
-    # برگرداندن تگ‌های <img>
     for i, img in enumerate(img_tags):
         translated_content = translated_content.replace(f"[[IMG{i}]]", img)
     return translated_content
@@ -102,7 +94,6 @@ if 'content' in latest_post:
         if 'value' in item:
             value = item['value'].split("Related Reading")[0].strip()
             print("محتوای خام فید:", value)
-            value = remove_first_heading(value)
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
             value = remove_newsbtc_links(value)
             translated_content = translate_with_images(value)
