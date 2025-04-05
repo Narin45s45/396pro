@@ -16,6 +16,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install feedparser google-auth-oauthlib google-api-python-client requests
+          pip install beautifulsoup4
       - name: Run script
         env:
           CREDENTIALS: ${{ secrets.CREDENTIALS }}
