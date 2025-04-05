@@ -21,6 +21,23 @@ def remove_newsbtc_links(text):
     pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
     return re.sub(pattern, r'\2', text)
 
+# تابع اضافه کردن کپشن از alt تصاویر
+def add_captions_from_alt(content):
+    img_tags = re.findall(r'<img[^>]+>', content)
+    for img in img_tags:
+        alt_match = re.search(r'alt=["\'](.*?)["\']', img)
+        if alt_match:
+            alt_text = alt_match.group(1)
+            caption = f'<div style="text-align:center;font-style:italic;">{alt_text}</div>'
+            content = content.replace(img, f'{img}{caption}')
+    return content
+
+# تابع اطمینان از نمایش همه تصاویر
+def ensure_images(content):
+    img_tags = re.findall(r'<img[^>]+>', content)
+    print(f"تعداد تصاویر توی فید: {len(img_tags)}")
+    return content
+
 # گرفتن اخبار از RSS
 feed = feedparser.parse(RSS_FEED_URL)
 latest_post = feed.entries[0]
@@ -45,6 +62,8 @@ if 'content' in latest_post:
             print("محتوای خام فید:", value)
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
             value = remove_newsbtc_links(value)
+            value = ensure_images(value)
+            value = add_captions_from_alt(value)
             content += f"<br>{value}"
             break
 
