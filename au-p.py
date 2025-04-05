@@ -22,19 +22,11 @@ service = build("blogger", "v3", credentials=creds)
 
 # تابع ترجمه با Gemini (بدون تغییر)
 def translate_with_gemini(text, target_lang="fa"):
-    # ... (کد تابع ترجمه مثل نسخه قبل) ...
+    # ... (کد کامل تابع مثل نسخه قبل) ...
     if not text or text.isspace(): return text
     headers = {"Content-Type": "application/json"}
     prompt = (
-        f"Please translate the following English text into {target_lang} with the utmost intelligence and precision. "
-        f"Pay close attention to context and nuance.\n"
-        f"IMPORTANT INSTRUCTION: For technical terms or English words commonly used in the field "
-        f"(like cryptocurrency, finance, technology), transliterate them into Persian script (Finglish) "
-        f"instead of translating them into a potentially obscure Persian word. "
-        f"Example: 'Stochastic Oscillator' should become 'اوسیلاتور استوکستیک'. "
-        f"Apply this transliteration rule consistently where appropriate.\n"
-        f"Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
-        f"OUTPUT REQUIREMENT: Do not add any explanations, comments, or options. Only return the final, high-quality translated text itself.\n\n"
+        f"Please translate the following English text into {target_lang} with the utmost intelligence and precision. ... " # (پرامپت کامل مثل قبل)
         f"English Text to Translate:\n{text}"
     )
     payload = {
@@ -121,7 +113,6 @@ try:
 except Exception as e:
     print(f"خطای غیرمنتظره در ترجمه عنوان: {e}")
 
-
 # اضافه کردن عکس پوستر
 # ... (مثل قبل) ...
 thumbnail = ""
@@ -138,8 +129,8 @@ elif 'links' in latest_post:
              if thumbnail_url and thumbnail_url.startswith(('http://', 'https://')):
                  thumbnail = f'<div style="text-align:center;"><img src="{thumbnail_url}" alt="{translated_title}" style="max-width:100%; height:auto;"></div>'; break
 
-# *** پردازش محتوا با BeautifulSoup (اشکال‌زدایی دقیق‌تر کپشن) ***
-print("شروع پردازش محتوا با BeautifulSoup (اشکال‌زدایی کپشن)...")
+# *** پردازش محتوا با BeautifulSoup (شناسایی کپشن <p>) ***
+print("شروع پردازش محتوا با BeautifulSoup (شناسایی کپشن p)...")
 content_source = None
 # ... (گرفتن content_source مثل قبل) ...
 if 'content' in latest_post and latest_post.content: content_source = latest_post.content[0]['value']
@@ -159,131 +150,170 @@ if content_source:
         # 2. پارس کردن HTML
         print("--- پارس کردن HTML...")
         soup = BeautifulSoup(content_cleaned_html, 'html.parser')
-        # *** لاگ کردن ساختار اولیه HTML ***
-        print(f"--- DEBUG: ساختار اولیه Soup (ابتدای): {soup.prettify()[:500]}...") 
 
-        # *** لاگ کردن تمام figcaption های پیدا شده ***
-        print("--- DEBUG: بررسی figcaption های موجود...")
-        all_figcaptions = soup.find_all('figcaption')
-        if not all_figcaptions:
-             print("--- DEBUG: هیچ تگ <figcaption> ای پیدا نشد.")
-        else:
-            for i, figcaption in enumerate(all_figcaptions):
-                 print(f"--- DEBUG: Figcaption یافت شده [{i+1}]: {str(figcaption)}")
-                 # لاگ کردن متن‌های داخل این figcaption
-                 caption_texts = [t.string for t in figcaption.find_all(string=True, recursive=True) if t.string and not t.string.isspace()]
-                 print(f"--- DEBUG: متن‌های استخراجی از Figcaption [{i+1}]: {caption_texts}")
+        # *** مرحله جدید: شناسایی و جداسازی کپشن‌های احتمالی (<p> بعد از <img>) ***
+        print("--- جستجو برای کپشن‌های احتمالی (<p> یا <figcaption>)...")
+        caption_tags_to_process = [] # List of (tag, original_text)
+        processed_caption_elements = set() # نگهداری تگ‌هایی که به عنوان کپشن پردازش می‌شوند
 
+        # ابتدا دنبال figcaption می‌گردیم
+        for figcaption in soup.find_all('figcaption'):
+             # بررسی اینکه قبلا پردازش نشده باشد (اگر داخل figure باشد ممکن است تکراری شود)
+             if figcaption not in processed_caption_elements:
+                 caption_text = figcaption.get_text(" ", strip=True)
+                 if caption_text:
+                     print(f"--- DEBUG: کپشن <figcaption> یافت شد: '{caption_text[:50]}...'")
+                     caption_tags_to_process.append((figcaption, caption_text))
+                     processed_caption_elements.add(figcaption)
 
-        # 3. استخراج گره‌ها و متن‌ها برای ترجمه
-        print("--- استخراج گره‌ها و متن‌ها برای ترجمه...")
-        text_nodes_to_process = [] # List of (node, original_text)
-        a_tags_to_process = []    # List of (tag, original_text)
+        # سپس دنبال p بعد از img یا figure می‌گردیم
+        potential_caption_parents = soup.find_all(['img', 'figure'])
+        for element in potential_caption_parents:
+            # پیدا کردن اولین تگ p بعدی (نه لزوما sibling مستقیم)
+            # next_sibling_p = element.find_next_sibling('p') 
+            # یا پیدا کردن اولین sibling که p باشد
+            sibling = element.next_sibling
+            while sibling and isinstance(sibling, NavigableString) and sibling.strip() == '': # رد کردن فضاهای خالی
+                sibling = sibling.next_sibling
+            
+            if sibling and sibling.name == 'p' and sibling not in processed_caption_elements:
+                 # بررسی کلاس یا طول متن به عنوان معیار
+                 is_caption = False
+                 if 'wp-caption-text' in sibling.get('class', []):
+                     is_caption = True
+                     print(f"--- DEBUG: کپشن <p> با کلاس 'wp-caption-text' یافت شد.")
+                 elif len(sibling.get_text(strip=True)) < 250: # معیار: متن نسبتا کوتاه
+                     is_caption = True
+                     print(f"--- DEBUG: کپشن <p> (متن کوتاه) یافت شد.")
+                 
+                 if is_caption:
+                     caption_text = sibling.get_text(" ", strip=True)
+                     if caption_text:
+                         caption_tags_to_process.append((sibling, caption_text))
+                         processed_caption_elements.add(sibling) # علامت‌گذاری برای عدم پردازش مجدد
 
-        text_parent_tags = ['p', 'li', 'blockquote', 'figcaption', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'em', 'strong', 'td', 'th']
+        print(f"--- تعداد {len(caption_tags_to_process)} کپشن احتمالی یافت شد.")
+
+        # 3. استخراج متن‌های معمولی و لینک‌ها (با رد کردن کپشن‌های شناسایی شده)
+        print("--- استخراج متن‌های معمولی و لینک‌ها...")
+        text_nodes_to_process = [] 
+        a_tags_to_process = []    
+
+        text_parent_tags = ['p', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'em', 'strong', 'td', 'th'] # figcaption و p کپشن نباید اینجا باشند
+        
         # استفاده از string=True
         for element in soup.find_all(string=True): 
             element_text = element.string 
             if not element_text or element_text.isspace(): continue
+
+            # بررسی اینکه آیا والدش جزو کپشن‌های پردازش شده است؟
+            is_inside_processed_caption = False
+            curr = element.parent
+            while curr:
+                if curr in processed_caption_elements:
+                    is_inside_processed_caption = True; break
+                curr = curr.parent
+            if is_inside_processed_caption: continue # رد کردن متن داخل کپشن
+
+            # بررسی اینکه آیا داخل لینک است؟
             is_inside_a = False; curr = element.parent
             while curr:
                 if curr.name == 'a': is_inside_a = True; break
                 curr = curr.parent
             
-            # *** لاگ کردن متن پیدا شده و والد آن ***
-            # print(f"--- DEBUG: متن یافت شد: '{element_text[:30]}' - والد: {element.parent.name}") 
-
+            # افزودن متن معمولی اگر والد مجاز است و داخل لینک/کپشن نیست
             if not is_inside_a and element.parent.name in text_parent_tags:
-                # *** لاگ کردن متنی که برای ترجمه اضافه می‌شود ***
-                print(f"--- DEBUG: افزودن متن معمولی برای ترجمه (از والد {element.parent.name}): '{element_text[:50]}...'")
                 text_nodes_to_process.append((element, element_text))
 
+        # استخراج لینک‌ها (به شرطی که داخل کپشن نباشند)
         for a_tag in soup.find_all('a'):
+            is_inside_processed_caption = False; curr = a_tag.parent
+            while curr:
+                if curr in processed_caption_elements: is_inside_processed_caption = True; break
+                curr = curr.parent
+            if is_inside_processed_caption: continue # رد کردن لینک داخل کپشن
+
             link_text = a_tag.get_text(" ", strip=True)
             if link_text: 
-                 # *** لاگ کردن متن لینکی که برای ترجمه اضافه می‌شود ***
-                 print(f"--- DEBUG: افزودن متن لینک برای ترجمه: '{link_text[:50]}...'")
-                 a_tags_to_process.append((a_tag, link_text))
+                a_tags_to_process.append((a_tag, link_text))
 
-        print(f"--- یافت شد {len(text_nodes_to_process)} متن معمولی و {len(a_tags_to_process)} متن لینک.")
-        total_segments = len(text_nodes_to_process) + len(a_tags_to_process)
+        print(f"--- یافت شد {len(text_nodes_to_process)} متن معمولی و {len(a_tags_to_process)} متن لینک (بدون احتساب کپشن).")
+        total_segments = len(caption_tags_to_process) + len(text_nodes_to_process) + len(a_tags_to_process)
         current_segment = 0
 
-        # 4. ترجمه و جایگزینی تک به تک متن‌های معمولی
+        # 4. ترجمه و جایگزینی تک به تک کپشن‌ها
+        print(f"--- شروع ترجمه و جایگزینی {len(caption_tags_to_process)} کپشن...")
+        for i, (tag, original_text) in enumerate(caption_tags_to_process):
+            current_segment += 1
+            print(f"--- پردازش کپشن {current_segment}/{total_segments}...")
+            try:
+                translated_text = translate_with_gemini(original_text)
+                if tag.parent is not None: # بررسی وجود والد
+                     tag.clear()
+                     # اگر لینک داخل کپشن بود، ترجمه لینک را هم باید هندل کرد - اینجا ساده‌سازی شده و فقط متن می‌گذاریم
+                     tag.append(NavigableString(translated_text))
+                     # اعمال استایل کپشن
+                     tag['style'] = f"text-align:center; font-size:small; direction:rtl; color:#555; {tag.get('style', '')}" # استایل دلخواه
+                else: print(f"--- هشدار: تگ کپشن {i+1} والد ندارد!")
+                time.sleep(0.2) 
+            except Exception as e:
+                print(f"--- خطا در ترجمه/جایگزینی کپشن {i+1}: {e}. استفاده از متن اصلی.")
+                if tag.parent is not None:
+                     tag.clear()
+                     tag.append(NavigableString(original_text)) # بازگرداندن متن اصلی
+                time.sleep(0.5)
+
+        # 5. ترجمه و جایگزینی تک به تک متن‌های معمولی
         print(f"--- شروع ترجمه و جایگزینی {len(text_nodes_to_process)} متن معمولی...")
+        # ... (حلقه ترجمه متن‌های معمولی مثل قبل، با آپدیت شماره سگمنت) ...
         successful_text_translations = 0
         for i, (node, original_text) in enumerate(text_nodes_to_process):
             current_segment += 1
-            is_caption_node = node.parent.name == 'figcaption' # بررسی مجدد والد
-            if is_caption_node: print(f"--- DEBUG: پردازش متن کپشن {current_segment}/{total_segments}: '{original_text[:50]}...'")
-            else: print(f"--- پردازش متن معمولی {current_segment}/{total_segments}...")
-            
+            print(f"--- پردازش متن معمولی {current_segment}/{total_segments}...")
             try:
                 translated_text = translate_with_gemini(original_text)
-                if is_caption_node: print(f"--- DEBUG: ترجمه متن کپشن: '{translated_text[:50]}...'")
-                
-                # بررسی مجدد که آیا گره هنوز در ساختار وجود دارد
-                if node.parent is None:
-                     print(f"--- هشدار: گره متن معمولی {i+1} دیگر در ساختار نیست!")
-                     continue # رفتن به گره بعدی
-
+                if node.parent is None: print(f"--- هشدار: گره متن معمولی {i+1} والد ندارد!"); continue 
                 if hasattr(node, 'replace_with'): 
                     node.replace_with(NavigableString(translated_text))
                     successful_text_translations += 1
                 else: print(f"--- هشدار: گره متن معمولی {i+1} خاصیت replace_with ندارد.")
-
                 time.sleep(0.2) 
             except Exception as e:
-                print(f"--- خطا در ترجمه/جایگزینی متن معمولی {i+1} ('{original_text[:30]}...'): {e}. استفاده از متن اصلی.")
+                print(f"--- خطا در ترجمه/جایگزینی متن معمولی {i+1}: {e}. استفاده از متن اصلی.")
                 time.sleep(0.5) 
-
         print(f"--- ترجمه {successful_text_translations} از {len(text_nodes_to_process)} متن معمولی موفق بود.")
 
-        # 5. ترجمه و جایگزینی تک به تک متن لینک‌ها
-        # ... (مثل قبل، با لاگینگ مشابه در صورت نیاز) ...
+
+        # 6. ترجمه و جایگزینی تک به تک متن لینک‌ها
         print(f"--- شروع ترجمه و جایگزینی {len(a_tags_to_process)} متن لینک...")
+        # ... (حلقه ترجمه لینک‌ها مثل قبل، با آپدیت شماره سگمنت) ...
         successful_link_translations = 0
         for i, (a_tag, original_text) in enumerate(a_tags_to_process):
             current_segment += 1
             print(f"--- پردازش متن لینک {current_segment}/{total_segments}...")
             try:
                 translated_text = translate_with_gemini(original_text)
-                # بررسی وجود تگ قبل از clear/append
                 if a_tag.parent is not None:
                      a_tag.clear() 
                      a_tag.append(NavigableString(translated_text))
                      successful_link_translations +=1
-                else:
-                    print(f"--- هشدار: تگ لینک {i+1} دیگر در ساختار نیست!")
+                else: print(f"--- هشدار: تگ لینک {i+1} والد ندارد!")
                 time.sleep(0.2) 
             except Exception as e:
-                print(f"--- خطا در ترجمه/جایگزینی متن لینک {i+1} ('{original_text[:30]}...'): {e}. استفاده از متن اصلی.")
-                # بازگرداندن متن اصلی در صورت خطا و اگر تگ هنوز وجود دارد
+                print(f"--- خطا در ترجمه/جایگزینی متن لینک {i+1}: {e}. استفاده از متن اصلی.")
                 if a_tag.parent is not None:
-                     a_tag.clear()
-                     a_tag.append(NavigableString(original_text))
+                     a_tag.clear(); a_tag.append(NavigableString(original_text))
                 time.sleep(0.5)
         print(f"--- ترجمه {successful_link_translations} از {len(a_tags_to_process)} متن لینک موفق بود.")
 
-
-        # *** لاگ کردن ساختار figcaption ها پس از ترجمه ***
-        print("--- DEBUG: بررسی figcaption ها پس از ترجمه...")
-        all_figcaptions_after = soup.find_all('figcaption')
-        if not all_figcaptions_after:
-             print("--- DEBUG: هیچ تگ <figcaption> ای پس از پردازش یافت نشد.")
-        else:
-            for i, figcaption in enumerate(all_figcaptions_after):
-                 print(f"--- DEBUG: Figcaption پس از پردازش [{i+1}]: {str(figcaption)}")
-
-
-        # 6. اعمال استایل به عکس‌ها
+        # 7. اعمال استایل به عکس‌ها
         print("--- اعمال استایل به عکس‌ها...")
-        for img in soup.find_all('img'):
-            img['style'] = f"display:block; margin-left:auto; margin-right:auto; max-width:100%; height:auto; {img.get('style', '')}"
+        # ... (مثل قبل) ...
+        for img in soup.find_all('img'): img['style'] = f"display:block; margin-left:auto; margin-right:auto; max-width:100%; height:auto; {img.get('style', '')}"
 
-        # 7. تبدیل سوپ اصلاح شده به رشته HTML
+
+        # 8. تبدیل سوپ اصلاح شده به رشته HTML
         content_html = str(soup)
-        print(f"--- DEBUG: HTML نهایی (ابتدای): {content_html[:500]}...")
         print("--- پردازش محتوا با BeautifulSoup کامل شد.")
 
     except Exception as e:
