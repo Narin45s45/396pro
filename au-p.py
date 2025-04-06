@@ -10,7 +10,8 @@ from bs4 import BeautifulSoup
 import time
 import base64
 from urllib.parse import urlparse
-import sys # برای flush کردن خروجی
+import sys
+import uuid # برای ساخت placeholder های منحصر به فرد
 
 # --- تنظیمات ---
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -31,7 +32,7 @@ except Exception as e:
      raise ValueError(f"خطا در بارگذاری CREDENTIALS: {e}")
 
 print(">>> آماده‌سازی سرویس بلاگر...")
-sys.stdout.flush() # اطمینان از چاپ شدن فوری
+sys.stdout.flush()
 try:
     service = build("blogger", "v3", credentials=creds)
     print("<<< سرویس بلاگر با موفقیت آماده شد.")
@@ -43,9 +44,65 @@ except Exception as e:
 
 BLOG_ID = "764765195397447456"
 REQUEST_TIMEOUT = 45
-GEMINI_TIMEOUT = 90
+GEMINI_TIMEOUT = 120 # افزایش بیشتر Timeout برای احتیاط
 
-# --- تابع ترجمه با Gemini (با لاگ و بهبود مدیریت خطا) ---
+# --- تابع جایگزینی عکس با Placeholder ---
+def replace_images_with_placeholders(html_content):
+    """
+    تمام تگ های <img> را با placeholder جایگزین می کند و نقشه آن را برمی گرداند.
+    """
+    print("--- شروع جایگزینی عکس‌ها با Placeholder...")
+    sys.stdout.flush()
+    if not html_content:
+        return "", {}
+
+    soup = BeautifulSoup(html_content, "html.parser")
+    images = soup.find_all("img")
+    placeholder_map = {}
+    placeholder_prefix = "##IMG_PLACEHOLDER_"
+    count = 0
+
+    for img in images:
+        placeholder = f"{placeholder_prefix}{uuid.uuid4()}##" # Placeholder منحصر به فرد
+        # ذخیره کل تگ img به صورت رشته
+        placeholder_map[placeholder] = str(img)
+        # جایگزینی تگ img با متن placeholder
+        img.replace_with(placeholder)
+        count += 1
+
+    modified_html = str(soup)
+    print(f"--- {count} عکس با Placeholder جایگزین شد.")
+    sys.stdout.flush()
+    return modified_html, placeholder_map
+
+# --- تابع بازگرداندن عکس از Placeholder ---
+def restore_images_from_placeholders(html_content, placeholder_map):
+    """
+    Placeholder ها را با تگ های <img> اصلی جایگزین می کند.
+    """
+    print("--- شروع بازگرداندن عکس‌ها از Placeholder...")
+    sys.stdout.flush()
+    if not placeholder_map:
+        return html_content
+
+    restored_content = html_content
+    count = 0
+    for placeholder, img_tag_str in placeholder_map.items():
+        # از replace استفاده می کنیم چون ممکن است ترجمه کمی ساختار را تغییر دهد
+        if placeholder in restored_content:
+             restored_content = restored_content.replace(placeholder, img_tag_str, 1) # فقط یکبار جایگزین کن
+             count += 1
+        else:
+             print(f"--- هشدار: Placeholder '{placeholder}' در متن ترجمه شده یافت نشد!")
+             sys.stdout.flush()
+
+
+    print(f"--- {count} عکس از Placeholder بازگردانده شد.")
+    sys.stdout.flush()
+    return restored_content
+
+
+# --- تابع ترجمه با Gemini (بدون تغییر زیاد، فقط لاگ) ---
 def translate_with_gemini(text, target_lang="fa"):
     print(f">>> شروع ترجمه متن با Gemini (طول متن: {len(text)} کاراکتر)...")
     sys.stdout.flush()
@@ -55,19 +112,19 @@ def translate_with_gemini(text, target_lang="fa"):
          return ""
 
     headers = {"Content-Type": "application/json"}
-    # Prompt remains the same as before
     prompt = (
-         f"Please translate the following English text (which might contain HTML tags) into {target_lang} "
+         f"Please translate the following English text (which might contain HTML tags AND special placeholders like ##IMG_PLACEHOLDER_...##) into {target_lang} "
          f"with the utmost intelligence and precision. Pay close attention to context and nuance.\n"
          f"IMPORTANT TRANSLATION RULES:\n"
-         f"1. Translate ALL text content, including text inside HTML tags like <p>, <li>, <blockquote>, <a>, <img> (alt text), etc. Do not skip any content.\n"
-         f"2. For technical terms or English words commonly used in the field (like Bitcoin, Ethereum, NFT, Blockchain, Stochastic Oscillator, MACD, RSI, AI, API), "
+         f"1. Translate ALL text content, including text inside HTML tags like <p>, <li>, <blockquote>, <a>, etc. Do not skip any content.\n"
+         f"2. !!! IMPORTANT: Preserve the image placeholders (e.g., ##IMG_PLACEHOLDER_uuid##) EXACTLY as they appear in the original text. DO NOT translate them, modify them, or add/remove spaces around them. They must remain identical.\n"
+         f"3. For technical terms or English words commonly used in the field (like Bitcoin, Ethereum, NFT, Blockchain, Stochastic Oscillator, MACD, RSI, AI, API), "
          f"transliterate them into Persian script (Finglish) instead of translating them into a potentially obscure Persian word. "
          f"Example: 'Stochastic Oscillator' should become 'اوسیلاتور استوکستیک'. Apply consistently.\n"
-         f"3. Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
-         f"4. Preserve the original HTML structure (tags and attributes) as much as possible, only translating the text content within the tags and relevant attributes like 'alt' or 'title'.\n" # Removed RTL mention here
-         f"OUTPUT REQUIREMENT: Only return the final, high-quality translated text with its original HTML structure. Do not add any explanations, comments, apologies, or options like '[Option 1]: ...'. Provide only the single best translation embedded in the HTML.\n\n"
-         f"English Text with HTML to Translate:\n{text}"
+         f"4. Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
+         f"5. Preserve the original HTML structure (tags and attributes) as much as possible, only translating the text content within the tags and relevant attributes like 'alt' or 'title'.\n"
+         f"OUTPUT REQUIREMENT: Only return the final, high-quality translated text with its original HTML structure AND the preserved placeholders. Do not add any explanations, comments, apologies, or options. Provide only the single best translation.\n\n"
+         f"English Text with HTML and Placeholders to Translate:\n{text}"
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -84,7 +141,7 @@ def translate_with_gemini(text, target_lang="fa"):
                 f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
                 headers=headers,
                 json=payload,
-                timeout=GEMINI_TIMEOUT
+                timeout=GEMINI_TIMEOUT # Timeout بیشتر
             )
             print(f"--- پاسخ اولیه از Gemini دریافت شد (کد وضعیت: {response.status_code})")
             sys.stdout.flush()
@@ -102,40 +159,40 @@ def translate_with_gemini(text, target_lang="fa"):
             sys.stdout.flush()
             result = response.json()
 
+            # ... (بقیه بررسی‌های پاسخ Gemini مانند قبل) ...
             if not result or "candidates" not in result or not result["candidates"]:
-                feedback = result.get("promptFeedback", {})
-                block_reason = feedback.get("blockReason")
-                safety_ratings = feedback.get("safetyRatings")
-                if block_reason:
-                    print(f"!!! Gemini درخواست را مسدود کرد: {block_reason}. جزئیات ایمنی: {safety_ratings}")
-                    sys.stdout.flush()
-                    raise ValueError(f"ترجمه توسط Gemini مسدود شد: {block_reason}")
-                else:
-                    print(f"!!! پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر candidates): {result}")
-                    sys.stdout.flush()
-                    raise ValueError("پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر candidates)")
+                 feedback = result.get("promptFeedback", {})
+                 block_reason = feedback.get("blockReason")
+                 if block_reason:
+                      print(f"!!! Gemini درخواست را مسدود کرد: {block_reason}")
+                      sys.stdout.flush()
+                      raise ValueError(f"ترجمه توسط Gemini مسدود شد: {block_reason}")
+                 else:
+                      print(f"!!! پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر candidates): {result}")
+                      sys.stdout.flush()
+                      raise ValueError("پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر candidates)")
 
             candidate = result["candidates"][0]
             if "content" not in candidate or "parts" not in candidate["content"] or not candidate["content"]["parts"]:
-                 finish_reason = candidate.get("finishReason", "نامشخص")
-                 if finish_reason != "STOP":
-                      print(f"!!! Gemini ترجمه را کامل نکرد: دلیل پایان = {finish_reason}")
-                      sys.stdout.flush()
-                      partial_text = candidate.get("content",{}).get("parts",[{}])[0].get("text")
-                      if partial_text:
-                           print("--- هشدار: ممکن است ترجمه ناقص باشد.")
-                           sys.stdout.flush()
-                           return partial_text.strip()
-                      raise ValueError(f"ترجمه ناقص از Gemini دریافت شد (دلیل: {finish_reason})")
-                 else:
-                    print(f"!!! پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر content/parts): {candidate}")
-                    sys.stdout.flush()
-                    raise ValueError("پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر content/parts)")
+                  finish_reason = candidate.get("finishReason", "نامشخص")
+                  if finish_reason != "STOP":
+                       print(f"!!! Gemini ترجمه را کامل نکرد: دلیل پایان = {finish_reason}")
+                       sys.stdout.flush()
+                       partial_text = candidate.get("content",{}).get("parts",[{}])[0].get("text")
+                       if partial_text:
+                            print("--- هشدار: ممکن است ترجمه ناقص باشد.")
+                            sys.stdout.flush()
+                            return partial_text.strip()
+                       raise ValueError(f"ترجمه ناقص از Gemini دریافت شد (دلیل: {finish_reason})")
+                  else:
+                     print(f"!!! پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر content/parts): {candidate}")
+                     sys.stdout.flush()
+                     raise ValueError("پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر content/parts)")
 
             if "text" not in candidate["content"]["parts"][0]:
-                 print(f"!!! پاسخ غیرمنتظره از API Gemini (بدون text در part): {candidate}")
-                 sys.stdout.flush()
-                 raise ValueError("پاسخ غیرمنتظره از API Gemini (بدون text در part)")
+                  print(f"!!! پاسخ غیرمنتظره از API Gemini (بدون text در part): {candidate}")
+                  sys.stdout.flush()
+                  raise ValueError("پاسخ غیرمنتظره از API Gemini (بدون text در part)")
 
             translated_text = candidate["content"]["parts"][0]["text"]
             print("<<< ترجمه متن با Gemini با موفقیت انجام شد.")
@@ -150,7 +207,7 @@ def translate_with_gemini(text, target_lang="fa"):
             if attempt >= max_retries:
                 print("!!! تلاش‌های مکرر برای Gemini ناموفق بود (Timeout).")
                 sys.stdout.flush()
-                raise ValueError("API Gemini پس از چند بار تلاش پاسخ نداد (Timeout).")
+                raise ValueError(f"API Gemini پس از چند بار تلاش پاسخ نداد (Timeout در تلاش {attempt+1}).")
             print(f"--- منتظر ماندن برای {retry_delay} ثانیه قبل از تلاش مجدد...")
             sys.stdout.flush()
             time.sleep(retry_delay)
@@ -180,6 +237,9 @@ def translate_with_gemini(text, target_lang="fa"):
     raise ValueError("ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
 
 
+# --- بقیه توابع (remove_newsbtc_links, replace_twimg_with_base64, crawl_captions, add_captions_to_images) ---
+# این توابع تقریباً بدون تغییر باقی می‌مانند، فقط لاگ‌ها حفظ می‌شوند.
+# (برای اختصار از تکرار کد کامل آنها خودداری می شود، فرض بر این است که از نسخه قبلی استفاده می شود)
 # --- تابع حذف لینک‌های newsbtc ---
 def remove_newsbtc_links(text):
     if not text: return ""
@@ -205,45 +265,25 @@ def replace_twimg_with_base64(content):
     twimg_count = 0
     for i, img in enumerate(images):
         src = img.get("src", "")
-        # print(f"--- بررسی عکس {i+1}/{len(images)}: src='{src[:100]}...'") # Log might be too verbose
-        # sys.stdout.flush()
         if "twimg.com" in src:
             twimg_count += 1
             print(f"--- عکس {i+1} از twimg.com است. شروع دانلود و تبدیل...")
             sys.stdout.flush()
             try:
                 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-                # print(f"---   در حال دانلود از: {src}") # Verbose log
-                # sys.stdout.flush()
                 response = requests.get(src, stream=True, timeout=REQUEST_TIMEOUT, headers=headers)
                 response.raise_for_status()
-                # print(f"---   دانلود کامل شد (وضعیت: {response.status_code}).") # Verbose log
-                # sys.stdout.flush()
-
                 content_type = response.headers.get('content-type', '').split(';')[0].strip()
                 if not content_type or not content_type.startswith('image/'):
-                    # print(f"---   هشدار: نوع محتوا نامعتبر ({content_type}). تلاش برای حدس زدن از URL...") # Verbose log
-                    # sys.stdout.flush()
                     parsed_url = urlparse(src)
                     path = parsed_url.path
                     ext = os.path.splitext(path)[1].lower()
                     mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'}
                     content_type = mime_map.get(ext, 'image/jpeg')
-                    # print(f"---   نوع محتوای حدس زده شده: {content_type}") # Verbose log
-                    # sys.stdout.flush()
 
-                # print(f"---   در حال خواندن محتوای عکس...") # Verbose log
-                # sys.stdout.flush()
                 image_content = response.content
-                # print(f"---   خواندن کامل شد (حجم: {len(image_content)} بایت).") # Verbose log
-                # sys.stdout.flush()
-                # print(f"---   در حال تبدیل به Base64...") # Verbose log
-                # sys.stdout.flush()
                 base64_encoded_data = base64.b64encode(image_content)
                 base64_string = base64_encoded_data.decode('utf-8')
-                # print(f"---   تبدیل Base64 کامل شد.") # Verbose log
-                # sys.stdout.flush()
-
                 data_uri = f"data:{content_type};base64,{base64_string}"
                 img['src'] = data_uri
                 if not img.get('alt'):
@@ -252,7 +292,6 @@ def replace_twimg_with_base64(content):
                 sys.stdout.flush()
                 modified = True
                 processed_count += 1
-
             except requests.exceptions.Timeout:
                 print(f"!!!   خطا: Timeout هنگام دانلود عکس {i+1} از {src}")
                 sys.stdout.flush()
@@ -262,13 +301,10 @@ def replace_twimg_with_base64(content):
             except Exception as e:
                 print(f"!!!   خطای غیرمنتظره هنگام پردازش عکس {i+1} ({src}): {e}")
                 sys.stdout.flush()
-            # print("-" * 20) # Separator # Verbose log
-            # sys.stdout.flush()
 
     print(f"<<< بررسی عکس‌های twimg.com تمام شد. {processed_count}/{twimg_count} عکس با موفقیت تبدیل شد.")
     sys.stdout.flush()
     return str(soup) if modified else content
-
 
 # --- تابع کرال کردن کپشن‌ها ---
 def crawl_captions(post_url):
@@ -288,7 +324,6 @@ def crawl_captions(post_url):
         soup = BeautifulSoup(response.content, "html.parser")
         print("--- تجزیه HTML کامل شد.")
         sys.stdout.flush()
-
         print("--- جستجو برای کپشن‌ها در تگ‌های <figure>...")
         sys.stdout.flush()
         figures = soup.find_all("figure")
@@ -304,7 +339,6 @@ def crawl_captions(post_url):
                     figure_captions_found += 1
         print(f"--- {figure_captions_found} کپشن در تگ <figure> یافت شد.")
         sys.stdout.flush()
-
         print("--- حذف کپشن‌های تکراری احتمالی...")
         sys.stdout.flush()
         unique_captions = []
@@ -314,11 +348,13 @@ def crawl_captions(post_url):
             if caption_text and caption_text not in seen_caption_texts:
                 unique_captions.append(item)
                 seen_caption_texts.add(caption_text)
-
         print(f"<<< کرال کردن کپشن‌ها تمام شد. {len(unique_captions)} کپشن منحصر به فرد یافت شد.")
+        # Print final captions found
+        print("--- کپشن‌های نهایی یافت شده:")
+        for i, item in enumerate(unique_captions):
+             print(f"    کپشن {i+1}: (عکس: {item['image_url'][:60]}...) متن: {BeautifulSoup(item['caption'], 'html.parser').get_text(strip=True)[:80]}...")
         sys.stdout.flush()
         return unique_captions
-
     except requests.exceptions.Timeout:
         print(f"!!! خطا: Timeout هنگام کرال کردن {post_url}")
         sys.stdout.flush()
@@ -332,7 +368,7 @@ def crawl_captions(post_url):
          sys.stdout.flush()
          return []
 
-# --- تابع قرار دادن کپشن‌ها زیر عکس‌ها (بدون استایل RTL اضافی) ---
+# --- تابع قرار دادن کپشن‌ها زیر عکس‌ها ---
 def add_captions_to_images(content, original_captions_with_images):
     if not original_captions_with_images:
         print("--- هیچ کپشنی برای اضافه کردن وجود ندارد. رد شدن...")
@@ -342,19 +378,19 @@ def add_captions_to_images(content, original_captions_with_images):
          print("--- محتوای ورودی برای اضافه کردن کپشن خالی است. رد شدن...")
          sys.stdout.flush()
          return ""
-    print(">>> شروع اضافه کردن کپشن‌ها به محتوای ترجمه‌شده...")
+    print(">>> شروع اضافه کردن کپشن‌ها به محتوای (احتمالا ترجمه‌شده)...")
     sys.stdout.flush()
 
+    # Important: We now operate on HTML potentially containing restored <img> tags
     soup = BeautifulSoup(content, "html.parser")
-    images = soup.find_all("img")
-    print(f"--- تعداد عکس‌های یافت شده در محتوای ترجمه‌شده: {len(images)}")
+    images = soup.find_all("img") # Find images again after potential restoration
+    print(f"--- تعداد عکس‌های یافت شده در محتوا: {len(images)}")
     sys.stdout.flush()
 
     if not images:
         print("--- هیچ عکسی در محتوا یافت نشد. کپشن‌ها در انتها اضافه می‌شوند.")
         sys.stdout.flush()
         captions_html = "".join([item['caption'] for item in original_captions_with_images])
-        # افزودن کپشن ها در انتها - با استایل ساده مرکزی
         final_captions_div = soup.new_tag('div', style="text-align: center; margin-top: 15px; font-size: small;")
         final_captions_div.append(BeautifulSoup(captions_html, "html.parser"))
         soup.append(final_captions_div)
@@ -364,60 +400,52 @@ def add_captions_to_images(content, original_captions_with_images):
     captions_added_count = 0
 
     for img_index, img in enumerate(images):
-        # print(f"--- پردازش عکس {img_index + 1}/{len(images)}...") # Verbose log
-        # sys.stdout.flush()
         potential_match_index = img_index
-
         if potential_match_index < len(original_captions_with_images) and potential_match_index not in used_caption_indices:
             matching_caption_data = original_captions_with_images[potential_match_index]
             matching_caption_html = matching_caption_data["caption"]
             original_url = matching_caption_data["image_url"]
-            # print(f"---   تلاش برای افزودن کپشن {potential_match_index + 1} (از عکس اصلی: {original_url[:60]}...)") # Verbose log
-            # sys.stdout.flush()
+            print(f"--- تلاش برای افزودن کپشن {potential_match_index + 1} به عکس {img_index + 1}...")
+            sys.stdout.flush()
 
             figure = soup.new_tag("figure")
-            # استایل مرکزی برای figure
             figure['style'] = "margin: 1em auto; text-align: center; max-width: 100%;"
 
             parent = img.parent
-            if parent.name == 'p' or parent.name == 'div':
+            if parent.name in ['p', 'div'] and not parent.get_text(strip=True): # Only replace if parent is simple wrapper
                  parent.replace_with(figure)
                  figure.append(img)
             else:
-                 img.wrap(figure)
+                 img.wrap(figure) # Otherwise, just wrap
 
             caption_soup = BeautifulSoup(matching_caption_html, "html.parser")
+            # Find first relevant tag within the parsed caption HTML
             caption_content = caption_soup.find(['figcaption', 'p', 'div', 'span'])
+            if not caption_content: # If only text nodes exist
+                 caption_content = soup.new_tag('figcaption') # Create a figcaption
+                 caption_content.string = caption_soup.get_text(strip=True)
+            elif caption_content.name != 'figcaption': # Ensure it's a figcaption if possible
+                 new_figcaption = soup.new_tag('figcaption')
+                 # Transfer content and style
+                 new_figcaption.contents = caption_content.contents
+                 new_figcaption['style'] = caption_content.get('style', '')
+                 caption_content = new_figcaption
 
             if caption_content:
-                # استایل ساده برای کپشن (بدون direction اجباری)
                 caption_content['style'] = caption_content.get('style', '') + ' text-align: center; font-size: small; margin-top: 5px; color: #555;'
                 figure.append(caption_content)
                 used_caption_indices.add(potential_match_index)
                 captions_added_count += 1
-                # print(f"---   کپشن {potential_match_index + 1} با موفقیت به عکس {img_index + 1} اضافه شد.") # Verbose log
-                # sys.stdout.flush()
+                print(f"---   کپشن {potential_match_index + 1} اضافه شد.")
+                sys.stdout.flush()
             else:
-                # print(f"---   هشدار: تگ اصلی کپشن {potential_match_index + 1} یافت نشد. افزودن به صورت خام.") # Verbose log
-                # sys.stdout.flush()
-                fallback_caption_div = soup.new_tag('div', style="text-align: center; font-size: small; margin-top: 5px; color: #555;")
-                fallback_caption_div.append(BeautifulSoup(matching_caption_html, 'html.parser'))
-                figure.append(fallback_caption_div)
-                used_caption_indices.add(potential_match_index)
-                captions_added_count += 1
-                # print(f"---   کپشن خام {potential_match_index + 1} به عکس {img_index + 1} اضافه شد.") # Verbose log
-                # sys.stdout.flush()
-        # else:
-             # print(f"---   کپشن متناظری برای عکس {img_index + 1} یافت نشد (یا قبلاً استفاده شده).") # Verbose log
-             # sys.stdout.flush()
-
+                 print(f"---   هشدار: محتوای کپشن {potential_match_index + 1} یافت نشد.")
+                 sys.stdout.flush()
 
     remaining_captions_html = ""
     remaining_count = 0
     for i, item in enumerate(original_captions_with_images):
          if i not in used_caption_indices:
-              # print(f"--- کپشن استفاده نشده {i+1} (از عکس {item['image_url'][:60]}) به انتها اضافه می‌شود.") # Verbose log
-              # sys.stdout.flush()
               remaining_captions_html += item['caption']
               remaining_count += 1
 
@@ -432,6 +460,7 @@ def add_captions_to_images(content, original_captions_with_images):
     sys.stdout.flush()
     return str(soup)
 
+
 # --- شروع اسکریپت اصلی ---
 print("\n" + "="*50)
 print(">>> شروع پردازش فید RSS و ارسال به بلاگر...")
@@ -440,6 +469,7 @@ sys.stdout.flush()
 
 # 1. دریافت فید RSS
 print("\n>>> مرحله ۱: دریافت و تجزیه فید RSS...")
+# ... (کد مانند قبل) ...
 sys.stdout.flush()
 try:
     print(f"--- در حال دریافت فید از: {RSS_FEED_URL}")
@@ -470,6 +500,7 @@ sys.stdout.flush()
 
 # 2. کرال کردن کپشن‌ها
 print("\n>>> مرحله ۲: کرال کردن کپشن‌ها از لینک پست اصلی...")
+# ... (کد مانند قبل) ...
 sys.stdout.flush()
 post_link = getattr(latest_post, 'link', None)
 original_captions_with_images = []
@@ -481,9 +512,9 @@ else:
 print(f"<<< مرحله ۲ کامل شد (تعداد کپشن یافت شده: {len(original_captions_with_images)}).")
 sys.stdout.flush()
 
-
 # 3. ترجمه عنوان
 print("\n>>> مرحله ۳: ترجمه عنوان پست...")
+# ... (کد مانند قبل) ...
 sys.stdout.flush()
 title = latest_post.title
 translated_title = title
@@ -500,6 +531,7 @@ sys.stdout.flush()
 
 # 4. پردازش تصویر بندانگشتی (Thumbnail)
 print("\n>>> مرحله ۴: پردازش تصویر بندانگشتی...")
+# ... (کد مانند قبل، از replace_twimg_with_base64 استفاده می‌کند) ...
 sys.stdout.flush()
 thumbnail_html = ""
 thumbnail_processed = False
@@ -514,16 +546,17 @@ try:
             if "twimg.com" in thumbnail_url:
                 print("--- تصویر بندانگشتی از twimg.com است، تبدیل به Base64...")
                 sys.stdout.flush()
-                converted_html = replace_twimg_with_base64(temp_img_tag)
-                if converted_html != temp_img_tag:
-                     final_src = BeautifulSoup(converted_html, "html.parser").img.get("src", thumbnail_url)
+                # Use the base64 function directly here as well
+                converted_soup = BeautifulSoup(replace_twimg_with_base64(temp_img_tag), "html.parser")
+                img_tag_after_conversion = converted_soup.find("img")
+                if img_tag_after_conversion and img_tag_after_conversion.get("src", "").startswith("data:"):
+                     final_src = img_tag_after_conversion["src"]
                      print("--- تصویر بندانگشتی twimg با موفقیت به Base64 تبدیل شد.")
                      sys.stdout.flush()
                 else:
                      print("--- هشدار: تبدیل تصویر بندانگشتی twimg ناموفق بود. از URL اصلی استفاده می‌شود.")
                      sys.stdout.flush()
 
-            # Create the final HTML with centering
             thumbnail_html = f'<div style="text-align:center; margin-bottom: 15px;"><img src="{final_src}" alt="{translated_title}" style="max-width:100%; height:auto; display:block; margin-left:auto; margin-right:auto; border-radius: 5px;"></div>'
             thumbnail_processed = True
         else:
@@ -537,18 +570,20 @@ except Exception as e:
      sys.stdout.flush()
 
 if thumbnail_processed: print("<<< مرحله ۴ کامل شد.")
-else: print("<<< مرحله ۴ رد شد (تصویر بندانگشتی یافت نشد یا پردازش نشد).")
+else: print("<<< مرحله ۴ رد شد.")
 sys.stdout.flush()
 
-# 5. پردازش محتوای اصلی
+
+# 5. پردازش محتوای اصلی (با Placeholder)
 print("\n>>> مرحله ۵: پردازش محتوای اصلی...")
 sys.stdout.flush()
 content_html = ""
-final_content_for_post = "<p>خطا: محتوای نهایی ایجاد نشد.</p>" # Default error message
+final_content_for_post = "<p>خطا: محتوای نهایی ایجاد نشد.</p>"
+placeholder_map_global = {} # برای استفاده در حالت خطا
 
 try:
-    # دریافت محتوای خام
     content_source = ""
+    # ... (کد دریافت content_source مانند قبل) ...
     if 'content' in latest_post and latest_post.content:
         if isinstance(latest_post.content, list) and len(latest_post.content) > 0 and 'value' in latest_post.content[0]:
             content_source = latest_post.content[0]['value']
@@ -575,31 +610,43 @@ try:
         print("--- تبدیل عکس‌های twimg کامل شد.")
         sys.stdout.flush()
 
-        # 5.3 ترجمه محتوا
-        print("--- 5.3 ترجمه محتوای پردازش شده...")
+        # 5.3 **جایگزینی همه عکس‌ها با Placeholder**
+        print("--- 5.3 جایگزینی همه عکس‌ها با Placeholder قبل از ترجمه...")
         sys.stdout.flush()
-        translated_content_raw = translate_with_gemini(content_with_base64_images)
-        print("--- ترجمه محتوا کامل شد.")
+        content_with_placeholders, placeholder_map_global = replace_images_with_placeholders(content_with_base64_images)
+        print("--- جایگزینی با Placeholder کامل شد.")
         sys.stdout.flush()
 
-        # 5.4 اضافه کردن کپشن‌ها به محتوای ترجمه شده
-        print("--- 5.4 اضافه کردن کپشن‌ها به محتوای ترجمه شده...")
+        # 5.4 ترجمه محتوا (حالا با Placeholderها)
+        print("--- 5.4 ترجمه محتوای حاوی Placeholder...")
         sys.stdout.flush()
-        translated_content_with_captions = add_captions_to_images(translated_content_raw, original_captions_with_images)
+        translated_content_with_placeholders = translate_with_gemini(content_with_placeholders)
+        print("--- ترجمه محتوای حاوی Placeholder کامل شد.")
+        sys.stdout.flush()
+
+        # 5.5 **بازگرداندن عکس‌ها از Placeholder**
+        print("--- 5.5 بازگرداندن عکس‌ها از Placeholder در متن ترجمه شده...")
+        sys.stdout.flush()
+        translated_content_restored = restore_images_from_placeholders(translated_content_with_placeholders, placeholder_map_global)
+        print("--- بازگرداندن عکس‌ها کامل شد.")
+        sys.stdout.flush()
+
+        # 5.6 اضافه کردن کپشن‌ها به محتوای ترجمه شده و بازیابی شده
+        print("--- 5.6 اضافه کردن کپشن‌ها به محتوای نهایی...")
+        sys.stdout.flush()
+        content_with_captions = add_captions_to_images(translated_content_restored, original_captions_with_images)
         print("--- اضافه کردن کپشن‌ها کامل شد.")
         sys.stdout.flush()
 
-        # 5.5 تنظیمات نهایی استایل (فقط عکس‌ها) و پاکسازی
-        print("--- 5.5 اعمال استایل نهایی به عکس‌ها و پاکسازی HTML...")
+        # 5.7 تنظیمات نهایی استایل و پاکسازی
+        print("--- 5.7 اعمال استایل نهایی به عکس‌ها و پاکسازی HTML...")
         sys.stdout.flush()
-        soup_final = BeautifulSoup(translated_content_with_captions, "html.parser")
+        soup_final = BeautifulSoup(content_with_captions, "html.parser")
         for img_tag in soup_final.find_all("img"):
-            # استایل مرکزی و ریسپانسیو برای همه عکس‌ها
             img_tag['style'] = img_tag.get('style', '') + ' max-width:100%; height:auto; display:block; margin-left:auto; margin-right:auto; border-radius: 3px;'
             if not img_tag.get('alt'):
                 img_tag['alt'] = translated_title
 
-        # حذف تگ‌های p خالی
         for p_tag in soup_final.find_all('p'):
             if not p_tag.get_text(strip=True) and not p_tag.find(['img', 'br', 'figure', 'iframe']):
                 p_tag.decompose()
@@ -607,27 +654,38 @@ try:
         content_html = str(soup_final)
         print("--- استایل‌دهی نهایی و پاکسازی کامل شد.")
         sys.stdout.flush()
-        # Wrapper اصلی - بدون direction اجباری
-        final_content_for_post = f'<div style="line-height: 1.7;">{content_html}</div>'
+        final_content_for_post = f'<div style="line-height: 1.7;">{content_html}</div>' # Wrapper بدون direction
 
     elif original_captions_with_images:
+         # ... (مانند قبل) ...
         print("--- هشدار: محتوای اصلی یافت نشد، فقط از کپشن‌ها استفاده می‌شود.")
         sys.stdout.flush()
         captions_html = "".join([item["caption"] for item in original_captions_with_images])
-        final_content_for_post = f'<div style="text-align: center; font-size: small;">{captions_html}</div>' # فقط مرکزی
+        final_content_for_post = f'<div style="text-align: center; font-size: small;">{captions_html}</div>'
     else:
-        print("!!! محتوایی برای پردازش یافت نشد (نه محتوای اصلی، نه کپشن).")
+        # ... (مانند قبل) ...
+        print("!!! محتوایی برای پردازش یافت نشد.")
         sys.stdout.flush()
         final_content_for_post = "<p style='text-align: center;'>محتوایی برای نمایش یافت نشد.</p>"
 
 except Exception as e:
-    print(f"!!! خطای جدی در پردازش محتوای اصلی (مرحله ۵): {e}")
+    print(f"!!! خطای جدی در پردازش محتوای اصلی (مرحله ۵): {type(e).__name__} - {e}")
+    import traceback
+    print("Traceback:")
+    traceback.print_exc()
     sys.stdout.flush()
-    # Fallback logic
+    # Fallback: نمایش محتوای اصلی انگلیسی، اما سعی کن عکس ها را از placeholder بازگردانی کنی
     if 'content_with_base64_images' in locals() and content_with_base64_images:
          print("--- استفاده از محتوای انگلیسی پردازش شده به عنوان جایگزین...")
          sys.stdout.flush()
-         final_content_for_post = f"<p style='color: red;'><i>[خطا در ترجمه یا پردازش نهایی رخ داد. محتوای اصلی (انگلیسی) در زیر نمایش داده می‌شود.]</i></p><div style='text-align:left; direction:ltr;'>{content_with_base64_images}</div>"
+         # حتی در حالت خطا، سعی کن کپشن ها را اضافه کنی
+         try:
+              content_fallback_with_captions = add_captions_to_images(content_with_base64_images, original_captions_with_images)
+              final_content_for_post = f"<p style='color: red;'><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) با کپشن‌ها در زیر نمایش داده می‌شود.]</i></p><div style='text-align:left; direction:ltr;'>{content_fallback_with_captions}</div>"
+         except Exception as fallback_e:
+              print(f"!!! خطا در افزودن کپشن به محتوای جایگزین: {fallback_e}")
+              final_content_for_post = f"<p style='color: red;'><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) در زیر نمایش داده می‌شود.]</i></p><div style='text-align:left; direction:ltr;'>{content_with_base64_images}</div>"
+
     else:
          final_content_for_post = f"<p style='text-align: center; color: red;'>خطای جدی در پردازش محتوا: {e}</p>"
 
@@ -637,32 +695,23 @@ sys.stdout.flush()
 
 # 6. ساختار نهایی پست
 print("\n>>> مرحله ۶: آماده‌سازی ساختار نهایی پست HTML...")
+# ... (کد مانند قبل) ...
 sys.stdout.flush()
 full_content_parts = []
 if thumbnail_html:
     full_content_parts.append(thumbnail_html)
-    # full_content_parts.append('<br>') # Add space only if needed
-
 if final_content_for_post:
     full_content_parts.append(final_content_for_post)
-
-# Add source link only if it was valid
 if post_link and post_link.startswith(('http://', 'https://')):
-    # لینک منبع - بدون direction اجباری، فقط کمی استایل
     full_content_parts.append(f'<div style="text-align:right; margin-top:15px; font-size: small; color: #777;"><a href="{post_link}" target="_blank" rel="noopener noreferrer nofollow">منبع: NewsBTC</a></div>')
 
 full_content = "".join(full_content_parts)
 print("<<< مرحله ۶ کامل شد.")
 sys.stdout.flush()
 
-# نمایش بخش کوچکی از محتوای نهایی (برای بررسی سریع)
-print("\n--- بخش ابتدایی محتوای نهایی برای ارسال ---")
-print(full_content[:500] + "...")
-print("--- پایان بخش ابتدایی ---")
-sys.stdout.flush()
-
 # 7. ارسال به بلاگر
 print("\n>>> مرحله ۷: ارسال پست به بلاگر...")
+# ... (کد مانند قبل با لاگ و مدیریت خطا) ...
 sys.stdout.flush()
 try:
     post_body = {
@@ -670,7 +719,7 @@ try:
         "blog": {"id": BLOG_ID},
         "title": translated_title,
         "content": full_content
-        # "labels": ["خبر", "ارز دیجیتال", "ترجمه"] # Add labels if needed
+        # "labels": ["خبر", "ارز دیجیتال", "ترجمه"]
     }
     print(f"--- در حال فراخوانی service.posts().insert برای بلاگ {BLOG_ID}...")
     sys.stdout.flush()
@@ -678,7 +727,7 @@ try:
     request = service.posts().insert(
         blogId=BLOG_ID,
         body=post_body,
-        isDraft=False # تنظیم به True برای تست اولیه بدون انتشار واقعی
+        isDraft=False
     )
     response = request.execute()
     end_time = time.time()
@@ -688,7 +737,7 @@ try:
     sys.stdout.flush()
 
 except HttpError as e:
-     # Parse HttpError content for better messages
+     # ... (مدیریت خطای HttpError مانند قبل) ...
      try:
           error_content = json.loads(e.content.decode('utf-8'))
           error_details = error_content.get('error', {})
@@ -703,16 +752,17 @@ except HttpError as e:
                print("!!! خطای 403 (Forbidden): دسترسی به بلاگ یا انجام عملیات مجاز نیست.")
                sys.stdout.flush()
      except (json.JSONDecodeError, AttributeError):
-          # Fallback if parsing error content fails
           print(f"!!! خطا در API بلاگر (وضعیت {e.resp.status}): {e}")
           sys.stdout.flush()
 
 except Exception as e:
+    # ... (مدیریت خطای عمومی مانند قبل) ...
     print(f"!!! خطای پیش‌بینی نشده در ارسال پست به بلاگر: {type(e).__name__} - {e}")
     import traceback
     print("Traceback:")
-    traceback.print_exc() # Print full traceback for unexpected errors
+    traceback.print_exc()
     sys.stdout.flush()
+
 
 print("\n" + "="*50)
 print(">>> اسکریپت به پایان رسید.")
