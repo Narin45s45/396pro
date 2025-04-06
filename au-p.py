@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 import re
 from difflib import SequenceMatcher
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 
 # تنظیمات فید RSS
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -35,24 +36,35 @@ def remove_repeated_title(content, title):
             content = content.replace(f'<h1>{heading}</h1>', '').replace(f'<h2>{heading}</h2>', '')
     return content
 
+# تابع گرفتن نام فایل از URL
+def get_filename_from_url(url):
+    parsed = urlparse(url)
+    return parsed.path.split('/')[-1].split('?')[0]
+
 # تابع کرال کردن کپشن از صفحه وب
 def crawl_captions(post_url, images_in_feed):
     captions = {}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
     try:
         # درخواست به صفحه وب
-        response = requests.get(post_url)
+        response = requests.get(post_url, headers=headers)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # پیدا کردن تمام تگ‌های <figure> که شامل <img> و <figcaption> هستن
-        figures = soup.find_all('figure', class_='wp-caption')
+        # پیدا کردن تمام تگ‌های <figure>
+        figures = soup.find_all('figure')
+        print(f"تعداد تگ‌های <figure> پیدا شده توی صفحه وب: {len(figures)}")
         for figure in figures:
             img = figure.find('img')
-            figcaption = figure.find('figcaption', class_='wp-caption-text')
+            figcaption = figure.find('figcaption')
             if img and figcaption:
                 img_src = img.get('src', '')
-                caption_text = figcaption.get_text(strip=True)
-                captions[img_src] = caption_text
+                caption_text = figcaption.decode_contents().strip()  # نگه داشتن تگ‌های HTML داخل کپشن
+                filename = get_filename_from_url(img_src)
+                captions[filename] = caption_text
+                print(f"کپشن پیدا شده برای {filename}: {caption_text}")
 
         # تطبیق کپشن‌ها با تصاویر توی فید
         matched_captions = {}
@@ -60,10 +72,22 @@ def crawl_captions(post_url, images_in_feed):
             img_src_match = re.search(r'src=["\'](.*?)["\']', img)
             if img_src_match:
                 img_src = img_src_match.group(1)
-                for crawled_src, caption in captions.items():
-                    if img_src in crawled_src or crawled_src in img_src:
+                filename = get_filename_from_url(img_src)
+                for crawled_filename, caption in captions.items():
+                    if filename == crawled_filename:
                         matched_captions[img] = caption
+                        print(f"تطبیق موفق: {img_src} -> {caption}")
                         break
+                else:
+                    # اگه کپشن پیدا نشد، از alt استفاده می‌کنیم
+                    alt_match = re.search(r'alt=["\'](.*?)["\']', img)
+                    if alt_match and alt_match.group(1).strip():
+                        alt_text = alt_match.group(1).strip()
+                        if not re.match(r'[\U0001F600-\U0001F64F]', alt_text):  # اگه ایموجی نبود
+                            matched_captions[img] = alt_text
+                            print(f"افت‌بک به alt برای {img_src}: {alt_text}")
+                    else:
+                        print(f"کپشن برای {img_src} پیدا نشد")
         return matched_captions
     except Exception as e:
         print(f"خطا در کرال کردن کپشن‌ها: {e}")
@@ -143,8 +167,3 @@ request = service.posts().insert(blogId=blog_id, body=post_body)
 response = request.execute()
 
 print("پست با موفقیت ارسال شد:", response["url"])
-
-
-
-
-
