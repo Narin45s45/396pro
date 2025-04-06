@@ -6,6 +6,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import re
 from difflib import SequenceMatcher
+from bs4 import BeautifulSoup
 
 # تنظیمات فید RSS
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -34,32 +35,52 @@ def remove_repeated_title(content, title):
             content = content.replace(f'<h1>{heading}</h1>', '').replace(f'<h2>{heading}</h2>', '')
     return content
 
-# تابع اضافه کردن کپشن از تگ <figcaption>
-def add_captions_from_figcaption(content):
-    # پیدا کردن تمام تگ‌های <figure> که شامل <img> و <figcaption> هستن
-    figure_tags = re.findall(r'<figure[^>]*>.*?</figure>', content, re.DOTALL)
-    for figure in figure_tags:
-        # گرفتن تگ <img> از داخل <figure>
-        img_match = re.search(r'<img[^>]+>', figure)
-        # گرفتن تگ <figcaption> از داخل <figure>
-        figcaption_match = re.search(r'<figcaption[^>]*>(.*?)</figcaption>', figure, re.DOTALL)
-        if img_match and figcaption_match:
-            img_tag = img_match.group(0)
-            caption_text = figcaption_match.group(1).strip()
-            # اضافه کردن کپشن زیر تصویر
-            new_content = f'{img_tag}<p style="text-align:center;font-style:italic;">{caption_text}</p>'
-            # جایگزینی تگ <figure> با تصویر و کپشن
-            content = content.replace(figure, new_content)
-        elif img_match:
-            # اگه <figcaption> نبود، فقط تصویر رو نگه می‌داریم
-            content = content.replace(figure, img_match.group(0))
+# تابع کرال کردن کپشن از صفحه وب
+def crawl_captions(post_url, images_in_feed):
+    captions = {}
+    try:
+        # درخواست به صفحه وب
+        response = requests.get(post_url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # پیدا کردن تمام تگ‌های <figure> که شامل <img> و <figcaption> هستن
+        figures = soup.find_all('figure', class_='wp-caption')
+        for figure in figures:
+            img = figure.find('img')
+            figcaption = figure.find('figcaption', class_='wp-caption-text')
+            if img and figcaption:
+                img_src = img.get('src', '')
+                caption_text = figcaption.get_text(strip=True)
+                captions[img_src] = caption_text
+
+        # تطبیق کپشن‌ها با تصاویر توی فید
+        matched_captions = {}
+        for img in images_in_feed:
+            img_src_match = re.search(r'src=["\'](.*?)["\']', img)
+            if img_src_match:
+                img_src = img_src_match.group(1)
+                for crawled_src, caption in captions.items():
+                    if img_src in crawled_src or crawled_src in img_src:
+                        matched_captions[img] = caption
+                        break
+        return matched_captions
+    except Exception as e:
+        print(f"خطا در کرال کردن کپشن‌ها: {e}")
+        return {}
+
+# تابع اضافه کردن کپشن‌های کرال‌شده
+def add_crawled_captions(content, captions):
+    for img, caption in captions.items():
+        new_content = f'{img}<p style="text-align:center;font-style:italic;">{caption}</p>'
+        content = content.replace(img, new_content)
     return content
 
 # تابع اطمینان از نمایش همه تصاویر
 def ensure_images(content):
     img_tags = re.findall(r'<img[^>]+>', content)
     print(f"تعداد تصاویر توی فید: {len(img_tags)}")
-    return content
+    return content, img_tags
 
 # گرفتن اخبار از RSS
 feed = feedparser.parse(RSS_FEED_URL)
@@ -86,8 +107,10 @@ if 'content' in latest_post:
             value = remove_repeated_title(value, title)
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
             value = remove_newsbtc_links(value)
-            value = ensure_images(value)
-            value = add_captions_from_figcaption(value)
+            value, images = ensure_images(value)
+            # کرال کردن کپشن‌ها از صفحه وب
+            captions = crawl_captions(latest_post.link, images)
+            value = add_crawled_captions(value, captions)
             content += f"<br>{value}"
             break
 
@@ -120,3 +143,8 @@ request = service.posts().insert(blogId=blog_id, body=post_body)
 response = request.execute()
 
 print("پست با موفقیت ارسال شد:", response["url"])
+
+
+
+
+
