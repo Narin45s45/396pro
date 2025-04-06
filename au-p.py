@@ -94,15 +94,23 @@ def upload_image_to_blogger(image_url):
         # حذف پست موقت
         service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
         
-        # چک کردن URL
+        # چک کردن و گرفتن URL دائمی
         if uploaded_url.startswith('data:image'):
-            print(f"هشدار: URL هنوز base64 است: {uploaded_url[:50]}...")
-        elif "blogger" in uploaded_url.lower() or "blogspot" in uploaded_url.lower():
+            print(f"هشدار: URL هنوز base64 است، تلاش برای گرفتن URL دائمی...")
+            # پست موقت رو دوباره منتشر می‌کنیم تا URL دائمی بگیریم
+            temp_post["content"] = temp_content
+            request = service.posts().insert(blogId=blog_id, body=temp_post, isDraft=False)
+            temp_response = request.execute()
+            soup = BeautifulSoup(temp_response['content'], "html.parser")
+            uploaded_url = soup.find("img")["src"]
+            service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
+        
+        if "blogger" in uploaded_url.lower() or "blogspot" in uploaded_url.lower():
             print(f"آپلود موفق: {image_url} -> {uploaded_url}")
             return uploaded_url
         else:
-            print(f"URL نامعتبر: {uploaded_url}")
-        return uploaded_url
+            print(f"URL نامعتبر یا هنوز تغییر نکرده: {uploaded_url}")
+            return uploaded_url
     except requests.RequestException as e:
         print(f"خطا در دانلود {image_url}: {e}")
         return image_url
@@ -223,7 +231,8 @@ print("پردازش محتوا...")
 content_source = latest_post.content[0]['value'] if 'content' in latest_post else latest_post.summary if 'summary' in latest_post else ""
 content_html = None
 if content_source:
-    content_cleaned = re.split(r'Related Reading|Read Also|See Also', content_source, flags=re.IGNORECASE)[0].strip()
+    # محدود کردن محتوا به 5000 کاراکتر برای جلوگیری از قطع شدن
+    content_cleaned = re.split(r'Related Reading|Read Also|See Also', content_source, flags=re.IGNORECASE)[0].strip()[:5000]
     content_cleaned = remove_newsbtc_links(content_cleaned)
     content_with_captions = add_captions_to_images(content_cleaned, captions_with_images)
     content_with_uploaded_images = replace_twimg_urls(content_with_captions)
@@ -256,9 +265,9 @@ if translated_title and content_html:
     print(f"محتوای نهایی (طول): {len(full_content)} کاراکتر")
     print(f"محتوای نهایی (پیش‌نمایش): {full_content[:500]}...")
 
-    # چک کردن اندازه و ارسال به بلاگر
-    if len(full_content) > 10000:  # محدودیت دلخواه، می‌تونی تست کنی
-        print("هشدار: محتوا خیلی طولانیه، ممکنه بلاگر نصفش رو نشون نده.")
+    # چک کردن اندازه
+    if len(full_content) > 10000:
+        print("هشدار: محتوا هنوز خیلی طولانیه، ممکنه بلاگر نصفش رو نشون نده.")
     
     print("ارسال به بلاگر...")
     try:
