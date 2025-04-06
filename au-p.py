@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 import re
 from bs4 import BeautifulSoup
 import time
+import base64
 
 # تنظیمات
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -26,7 +27,7 @@ def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
     prompt = (
         f"Please translate the following English text (which might contain HTML tags) into {target_lang} "
-        f"with the utmost intelligence and precision. Pay close attention to context and nuance.\n"
+        f"with the utmost intelligence and precision. Pay close attention to context and Nuance.\n"
         f"IMPORTANT TRANSLATION RULES:\n"
         f"1. Translate ALL text content, including text inside HTML tags like <p>, <li>, and especially <blockquote>. Do not skip any content.\n"
         f"2. For technical terms or English words commonly used in the field (like cryptocurrency, finance, technology), "
@@ -39,7 +40,7 @@ def translate_with_gemini(text, target_lang="fa"):
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.5}  # اصلاح خطای "Graphics"
+        "generationConfig": {"temperature": 0.5}
     }
     max_retries = 2
     retry_delay = 5
@@ -73,12 +74,15 @@ def upload_image_to_blogger(image_url):
         image_content = response.content
         image_name = image_url.split('/')[-1]
         
-        # آپلود به بلاگر با پست موقت
+        # تبدیل به base64 و آپلود
+        base64_image = base64.b64encode(image_content).decode('utf-8')
+        temp_content = f'<img src="data:image/jpeg;base64,{base64_image}" alt="{image_name}" style="max-width:100%; height:auto;">'
+        
         temp_post = {
             "kind": "blogger#post",
             "blog": {"id": blog_id},
             "title": "Temp Image Upload",
-            "content": f'<img src="{image_url}" alt="{image_name}" style="max-width:100%; height:auto;">'
+            "content": temp_content
         }
         request = service.posts().insert(blogId=blog_id, body=temp_post, isDraft=True)
         temp_response = request.execute()
@@ -90,12 +94,11 @@ def upload_image_to_blogger(image_url):
         # حذف پست موقت
         service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
         
-        # چک کردن اینکه URL واقعاً تغییر کرده
-        if uploaded_url != image_url and "blogger" in uploaded_url:
+        if uploaded_url != image_url and "blogger" in uploaded_url.lower():
             print(f"آپلود موفق: {image_url} -> {uploaded_url}")
             return uploaded_url
         else:
-            print(f"URL آپلودشده تغییر نکرد: {uploaded_url}")
+            print(f"URL آپلودشده تغییر نکرد یا نامعتبر است: {uploaded_url}")
             return image_url
     except requests.RequestException as e:
         print(f"خطا در دانلود {image_url}: {e}")
@@ -200,7 +203,7 @@ try:
     print(f"عنوان: {translated_title}")
 except Exception as e:
     print(f"خطا در ترجمه عنوان: {e}")
-    translated_title = None  # اگه خطا داد، None می‌ذاریم
+    translated_title = None
 
 # عکس پوستر
 thumbnail = ""
@@ -236,7 +239,7 @@ if content_source:
         print(f"خطا در ترجمه محتوا: {e}")
         content_html = None
 
-# ساختار پست (فقط اگه ترجمه موفق باشه)
+# ساختار پست
 if translated_title and content_html:
     full_content_parts = []
     if thumbnail:
