@@ -7,7 +7,6 @@ from googleapiclient.discovery import build
 import re
 from bs4 import BeautifulSoup
 import time
-import base64
 
 # تنظیمات
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -65,54 +64,11 @@ def translate_with_gemini(text, target_lang="fa"):
 def remove_newsbtc_links(text):
     return re.sub(r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>', r'\2', text, flags=re.IGNORECASE)
 
-# تابع آپلود عکس
+# تابع آپلود عکس (موقتاً ساده شده)
 def upload_image_to_blogger(image_url):
     try:
-        # دانلود عکس
-        response = requests.get(image_url, stream=True, timeout=10)
-        response.raise_for_status()
-        image_content = response.content
-        image_name = image_url.split('/')[-1]
-        
-        # تبدیل به base64 و آپلود
-        base64_image = base64.b64encode(image_content).decode('utf-8')
-        temp_content = f'<img src="data:image/jpeg;base64,{base64_image}" alt="{image_name}" style="max-width:100%; height:auto;">'
-        
-        temp_post = {
-            "kind": "blogger#post",
-            "blog": {"id": blog_id},
-            "title": "Temp Image Upload",
-            "content": temp_content
-        }
-        request = service.posts().insert(blogId=blog_id, body=temp_post, isDraft=True)
-        temp_response = request.execute()
-        
-        # گرفتن URL آپلودشده
-        soup = BeautifulSoup(temp_response['content'], "html.parser")
-        uploaded_url = soup.find("img")["src"]
-        
-        # حذف پست موقت
-        service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
-        
-        # چک کردن و گرفتن URL دائمی
-        if uploaded_url.startswith('data:image'):
-            print(f"هشدار: URL هنوز base64 است، تلاش برای گرفتن URL دائمی...")
-            # پست موقت رو دوباره منتشر می‌کنیم تا URL دائمی بگیریم
-            temp_post["content"] = temp_content
-            request = service.posts().insert(blogId=blog_id, body=temp_post, isDraft=False)
-            temp_response = request.execute()
-            soup = BeautifulSoup(temp_response['content'], "html.parser")
-            uploaded_url = soup.find("img")["src"]
-            service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
-        
-        if "blogger" in uploaded_url.lower() or "blogspot" in uploaded_url.lower():
-            print(f"آپلود موفق: {image_url} -> {uploaded_url}")
-            return uploaded_url
-        else:
-            print(f"URL نامعتبر یا هنوز تغییر نکرده: {uploaded_url}")
-            return uploaded_url
-    except requests.RequestException as e:
-        print(f"خطا در دانلود {image_url}: {e}")
+        # فعلاً URL اصلی رو برمی‌گردونیم تا مشکل base64 حل بشه
+        print(f"آپلود عکس به تعویق افتاد: {image_url}")
         return image_url
     except Exception as e:
         print(f"خطا در آپلود به بلاگر {image_url}: {e}")
@@ -231,7 +187,7 @@ print("پردازش محتوا...")
 content_source = latest_post.content[0]['value'] if 'content' in latest_post else latest_post.summary if 'summary' in latest_post else ""
 content_html = None
 if content_source:
-    # محدود کردن محتوا به 5000 کاراکتر برای جلوگیری از قطع شدن
+    # محدود کردن به 5000 کاراکتر قبل از ترجمه
     content_cleaned = re.split(r'Related Reading|Read Also|See Also', content_source, flags=re.IGNORECASE)[0].strip()[:5000]
     content_cleaned = remove_newsbtc_links(content_cleaned)
     content_with_captions = add_captions_to_images(content_cleaned, captions_with_images)
@@ -262,13 +218,13 @@ if translated_title and content_html:
         full_content_parts.append(f'<div style="text-align:right;direction:rtl;margin-top:15px;"><a href="{post_link}" target="_blank" rel="noopener noreferrer">منبع</a></div>')
 
     full_content = "".join(full_content_parts)
+    # محدود کردن به 10000 کاراکتر
+    if len(full_content) > 10000:
+        full_content = full_content[:10000]
+        print("محتوا به 10000 کاراکتر محدود شد.")
     print(f"محتوای نهایی (طول): {len(full_content)} کاراکتر")
     print(f"محتوای نهایی (پیش‌نمایش): {full_content[:500]}...")
 
-    # چک کردن اندازه
-    if len(full_content) > 10000:
-        print("هشدار: محتوا هنوز خیلی طولانیه، ممکنه بلاگر نصفش رو نشون نده.")
-    
     print("ارسال به بلاگر...")
     try:
         request = service.posts().insert(blogId=blog_id, body={"kind": "blogger#post", "blog": {"id": blog_id}, "title": translated_title, "content": full_content}, isDraft=False)
