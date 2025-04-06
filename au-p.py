@@ -5,7 +5,7 @@ import requests
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import re
-from bs4 import BeautifulSoup  # برای کرال کردن کپشن‌ها
+from bs4 import BeautifulSoup  # برای کرال کردن کپشن‌ها و پارس کردن محتوا
 
 # تنظیمات فید RSS
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -121,10 +121,10 @@ def crawl_captions(post_url):
         if pre_caption:
             captions.append(str(pre_caption))
 
-        # کپشن ۲: تگ <figure> با کلاس wp-caption aligncenter
-        figure_caption = soup.find("figure", class_="wp-caption aligncenter")
-        if figure_caption:
-            captions.append(str(figure_caption))
+        # کپشن ۲: تگ <figcaption> با کلاس wp-caption-text
+        figcaptions = soup.find_all("figcaption", class_="wp-caption-text")
+        for figcaption in figcaptions:
+            captions.append(str(figcaption))
 
         # کپشن ۳: تگ <p> با استایل text-align: center
         p_caption = soup.find("p", style="text-align: center")
@@ -139,6 +139,45 @@ def crawl_captions(post_url):
     except Exception as e:
         print(f"خطای غیرمنتظره در کرال کردن: {e}")
         return []
+
+# تابع برای قرار دادن کپشن‌ها زیر عکس‌ها
+def add_captions_to_images(content, captions):
+    if not captions:
+        return content
+
+    # پارس کردن محتوای فید
+    soup = BeautifulSoup(content, "html.parser")
+    images = soup.find_all("img")  # پیدا کردن همه تگ‌های <img>
+
+    # اگه هیچ عکسی توی محتوا نبود، کپشن‌ها رو به انتها اضافه می‌کنیم
+    if not images:
+        print("هیچ عکسی توی محتوا پیدا نشد. کپشن‌ها به انتها اضافه می‌شن.")
+        return content + "\n" + "\n".join(captions)
+
+    # قرار دادن کپشن‌ها زیر عکس‌ها
+    caption_index = 0
+    for img in images:
+        if caption_index >= len(captions):
+            break  # اگه کپشن‌ها تموم شدن، ادامه نمی‌دیم
+
+        # ساخت تگ <figure> اگه وجود نداشته باشه
+        parent = img.parent
+        if parent.name != "figure":
+            figure = soup.new_tag("figure")
+            img.wrap(figure)
+            parent = img.parent
+
+        # اضافه کردن کپشن به <figure>
+        caption_tag = BeautifulSoup(captions[caption_index], "html.parser")
+        parent.append(caption_tag)
+        caption_index += 1
+
+    # اگه کپشن‌های اضافی موندن، به انتها اضافه می‌کنیم
+    if caption_index < len(captions):
+        remaining_captions = "\n".join(captions[caption_index:])
+        soup.append(BeautifulSoup(remaining_captions, "html.parser"))
+
+    return str(soup)
 
 # گرفتن اخبار از RSS
 print("در حال دریافت فید RSS...")
@@ -185,111 +224,4 @@ if hasattr(latest_post, 'media_content') and isinstance(latest_post.media_conten
     if isinstance(media, dict) and 'url' in media:
         thumbnail_url = media['url']
         if thumbnail_url.startswith('http://') or thumbnail_url.startswith('https://'):
-             thumbnail = f'<div style="text-align:center;"><img src="{thumbnail_url}" alt="{translated_title}" style="max-width:100%; height:auto;"></div>'
-        else:
-            print(f"URL تصویر نامعتبر یافت شد: {thumbnail_url}")
-elif 'links' in latest_post:
-     for link_info in latest_post.links:
-         if link_info.get('rel') == 'enclosure' and link_info.get('type', '').startswith('image/'):
-             thumbnail_url = link_info.get('href')
-             if thumbnail_url and (thumbnail_url.startswith('http://') or thumbnail_url.startswith('https://')):
-                 thumbnail = f'<div style="text-align:center;"><img src="{thumbnail_url}" alt="{translated_title}" style="max-width:100%; height:auto;"></div>'
-                 break
-
-# پردازش محتوا
-print("در حال پردازش محتوا...")
-content_source = None
-if 'content' in latest_post and latest_post.content:
-    content_source = latest_post.content[0]['value']
-elif 'summary' in latest_post:
-    content_source = latest_post.summary
-elif 'description' in latest_post:
-     content_source = latest_post.description
-
-if content_source:
-    # اضافه کردن کپشن‌های کرال‌شده به انتهای محتوا
-    content_with_captions = content_source + "\n" + "\n".join(additional_captions)
-    
-    # تمیز کردن محتوا
-    content_cleaned = re.split(r'Related Reading|Read Also|See Also', content_with_captions, flags=re.IGNORECASE)[0].strip()
-    content_cleaned = remove_newsbtc_links(content_cleaned)
-    
-    print("در حال ترجمه محتوا (شامل HTML)...")
-    try:
-        translated_html_content = translate_with_gemini(content_cleaned)
-        
-        final_content_html = re.sub(r'<img\s+', '<img style="display:block;margin-left:auto;margin-right:auto;max-width:100%;height:auto;" ', translated_html_content, flags=re.IGNORECASE)
-        
-        content_html = final_content_html
-        print("ترجمه و پس‌پردازش محتوا انجام شد.")
-
-    except ValueError as e:
-        print(f"خطا در ترجمه محتوا: {e}")
-        content_html = f"<p><i>[خطا در ترجمه محتوا]</i></p><div style='text-align:left; direction:ltr; font-family:monospace;'>{content_cleaned}</div>"
-    except Exception as e:
-        print(f"خطای غیرمنتظره در ترجمه محتوا: {e}")
-        content_html = f"<p><i>[خطای غیرمنتظره در ترجمه محتوا]</i></p><div style='text-align:left; direction:ltr; font-family:monospace;'>{content_cleaned}</div>"
-
-else:
-    print("محتوایی برای پردازش یافت نشد.")
-    # اگر محتوا وجود نداشته باشه، فقط کپشن‌های کرال‌شده رو استفاده می‌کنیم
-    content_with_captions = "\n".join(additional_captions)
-    content_cleaned = content_with_captions
-    
-    print("در حال ترجمه کپشن‌های کرال‌شده (شامل HTML)...")
-    try:
-        translated_html_content = translate_with_gemini(content_cleaned)
-        final_content_html = re.sub(r'<img\s+', '<img style="display:block;margin-left:auto;margin-right:auto;max-width:100%;height:auto;" ', translated_html_content, flags=re.IGNORECASE)
-        content_html = final_content_html
-        print("ترجمه کپشن‌ها انجام شد.")
-    except ValueError as e:
-        print(f"خطا در ترجمه کپشن‌ها: {e}")
-        content_html = f"<p><i>[خطا در ترجمه کپشن‌ها]</i></p><div style='text-align:left; direction:ltr; font-family:monospace;'>{content_cleaned}</div>"
-    except Exception as e:
-        print(f"خطای غیرمنتظره در ترجمه کپشن‌ها: {e}")
-        content_html = f"<p><i>[خطای غیرمنتظره در ترجمه کپشن‌ها]</i></p><div style='text-align:left; direction:ltr; font-family:monospace;'>{content_cleaned}</div>"
-
-# ساختار نهایی پست
-print("در حال ساختاردهی پست نهایی...")
-full_content_parts = []
-
-if thumbnail:
-    full_content_parts.append(thumbnail)
-    full_content_parts.append('<br>')
-
-if content_html:
-    full_content_parts.append(f'<div style="text-align:justify;direction:rtl;">{content_html}</div>')
-else:
-     full_content_parts.append('<div style="text-align:center;direction:rtl;">[محتوای مقاله یافت نشد یا قابل پردازش نبود]</div>')
-
-if post_link and (post_link.startswith('http://') or post_link.startswith('https://')):
-    full_content_parts.append(f'<div style="text-align:right;direction:rtl;margin-top:15px;">')
-    full_content_parts.append(f'<a href="{post_link}" target="_blank" rel="noopener noreferrer">منبع</a>')
-    full_content_parts.append(f'</div>')
-else:
-    print("لینک منبع معتبر یافت نشد.")
-
-full_content = "".join(full_content_parts)
-
-# ساخت و ارسال پست به بلاگر
-blog_id = "764765195397447456"
-post_body = {
-    "kind": "blogger#post",
-    "blog": {"id": blog_id},
-    "title": translated_title,
-    "content": full_content
-}
-
-print("در حال ارسال پست به بلاگر...")
-try:
-    request = service.posts().insert(blogId=blog_id, body=post_body, isDraft=False)
-    response = request.execute()
-    print("پست با موفقیت ارسال شد:", response.get("url", "URL نامشخص"))
-except Exception as e:
-    print(f"خطا هنگام ارسال پست به بلاگر: {e}")
-    if hasattr(e, 'content'):
-        try:
-            error_details = json.loads(e.content)
-            print(f"جزئیات خطا از API بلاگر: {error_details}")
-        except json.JSONDecodeError:
-            print(f"محتوای خطا (غیر JSON): {e.content}")
+             thumbnail = f
