@@ -113,23 +113,31 @@ def crawl_captions(post_url):
         response.raise_for_status()  # اگه خطایی بود، استثنا می‌ندازه
         soup = BeautifulSoup(response.content, "html.parser")
 
-        # لیست برای ذخیره کپشن‌ها
-        captions = []
+        # مجموعه برای ذخیره کپشن‌ها (برای جلوگیری از تکرار)
+        captions_set = set()
 
         # کپشن ۱: تگ <pre> با استایل text-align: center
         pre_caption = soup.find("pre", style="text-align: center")
         if pre_caption:
-            captions.append(str(pre_caption))
+            captions_set.add(str(pre_caption))
 
         # کپشن ۲: تگ <figcaption> با کلاس wp-caption-text
         figcaptions = soup.find_all("figcaption", class_="wp-caption-text")
         for figcaption in figcaptions:
-            captions.append(str(figcaption))
+            captions_set.add(str(figcaption))
 
         # کپشن ۳: تگ <p> با استایل text-align: center
         p_caption = soup.find("p", style="text-align: center")
         if p_caption:
-            captions.append(str(p_caption))
+            captions_set.add(str(p_caption))
+
+        # تبدیل مجموعه به لیست
+        captions = list(captions_set)
+        
+        # دیباگ: چاپ کپشن‌های کرال‌شده
+        print("کپشن‌های کرال‌شده:")
+        for i, caption in enumerate(captions, 1):
+            print(f"کپشن {i}: {caption}")
 
         return captions
 
@@ -143,11 +151,17 @@ def crawl_captions(post_url):
 # تابع برای قرار دادن کپشن‌ها زیر عکس‌ها
 def add_captions_to_images(content, captions):
     if not captions:
+        print("هیچ کپشنی برای اضافه کردن وجود ندارد.")
         return content
 
     # پارس کردن محتوای فید
     soup = BeautifulSoup(content, "html.parser")
     images = soup.find_all("img")  # پیدا کردن همه تگ‌های <img>
+
+    # دیباگ: چاپ تعداد عکس‌ها
+    print(f"تعداد عکس‌های پیدا شده در محتوا: {len(images)}")
+    for i, img in enumerate(images, 1):
+        print(f"عکس {i}: {img.get('src')}")
 
     # اگه هیچ عکسی توی محتوا نبود، کپشن‌ها رو به انتها اضافه می‌کنیم
     if not images:
@@ -155,8 +169,21 @@ def add_captions_to_images(content, captions):
         return content + "\n" + "\n".join(captions)
 
     # قرار دادن کپشن‌ها زیر عکس‌ها
+    used_captions = set()  # برای جلوگیری از استفاده مجدد کپشن‌ها
     caption_index = 0
     for img in images:
+        if caption_index >= len(captions):
+            break  # اگه کپشن‌ها تموم شدن، ادامه نمی‌دیم
+
+        # کپشن فعلی
+        current_caption = captions[caption_index]
+
+        # اگه کپشن قبلاً استفاده شده، به کپشن بعدی می‌ریم
+        while current_caption in used_captions and caption_index < len(captions):
+            caption_index += 1
+            if caption_index < len(captions):
+                current_caption = captions[caption_index]
+
         if caption_index >= len(captions):
             break  # اگه کپشن‌ها تموم شدن، ادامه نمی‌دیم
 
@@ -168,14 +195,21 @@ def add_captions_to_images(content, captions):
             parent = img.parent
 
         # اضافه کردن کپشن به <figure>
-        caption_tag = BeautifulSoup(captions[caption_index], "html.parser")
+        caption_tag = BeautifulSoup(current_caption, "html.parser")
         parent.append(caption_tag)
+        used_captions.add(current_caption)
         caption_index += 1
 
+        # دیباگ: چاپ کپشن اضافه‌شده
+        print(f"کپشن اضافه‌شده به عکس {img.get('src')}: {current_caption}")
+
     # اگه کپشن‌های اضافی موندن، به انتها اضافه می‌کنیم
-    if caption_index < len(captions):
-        remaining_captions = "\n".join(captions[caption_index:])
-        soup.append(BeautifulSoup(remaining_captions, "html.parser"))
+    remaining_captions = [caption for i, caption in enumerate(captions) if caption not in used_captions]
+    if remaining_captions:
+        print("کپشن‌های اضافی به انتها اضافه می‌شن:")
+        for caption in remaining_captions:
+            print(caption)
+        soup.append(BeautifulSoup("\n".join(remaining_captions), "html.parser"))
 
     return str(soup)
 
@@ -204,7 +238,7 @@ else:
 title = latest_post.title
 content_html = ""
 
-# ترجمه عنوان (اولین کاری که باید انجام بشه)
+# ترجمه عنوان
 print("در حال ترجمه عنوان...")
 try:
     translated_title = translate_with_gemini(title)
@@ -217,7 +251,7 @@ except Exception as e:
     print(f"خطای غیرمنتظره در ترجمه عنوان: {e}")
     translated_title = title
 
-# اضافه کردن عکس پوستر (بعد از ترجمه عنوان)
+# اضافه کردن عکس پوستر
 thumbnail = ""
 if hasattr(latest_post, 'media_content') and isinstance(latest_post.media_content, list) and latest_post.media_content:
     media = latest_post.media_content[0]
