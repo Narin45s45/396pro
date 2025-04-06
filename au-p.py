@@ -39,14 +39,19 @@ def translate_with_gemini(text, target_lang="fa"):
     }
     try:
         response = requests.post(f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=payload)
+        response.raise_for_status()  # اگه درخواست HTTP خطا داشته باشه
         result = response.json()
         if "candidates" not in result:
             raise ValueError(f"خطا در پاسخ API: {result.get('error', 'مشخصات نامعلوم')}")
-        return result["candidates"][0]["content"]["parts"][0]["text"]
-    except ValueError as e:
-        if "code': 429" in str(e):
-            return text
-        raise
+        translated_text = result["candidates"][0]["content"]["parts"][0]["text"]
+        # چک کردن اینکه آیا ترجمه انجام شده یا نه
+        if translated_text.strip() == text.strip():
+            raise ValueError("ترجمه انجام نشد: متن خروجی با متن ورودی یکسانه")
+        print(f"ترجمه موفق: {text[:50]}... -> {translated_text[:50]}...")
+        return translated_text
+    except Exception as e:
+        print(f"خطا در ترجمه: {e}")
+        raise ValueError(f"ترجمه ناموفق: {e}")
 
 # تابع حذف لینک‌های newsbtc
 def remove_newsbtc_links(text):
@@ -77,12 +82,9 @@ def crawl_captions(post_url, images_in_feed):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
     try:
-        # درخواست به صفحه وب
         response = requests.get(post_url, headers=headers)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
-
-        # پیدا کردن تمام تگ‌های <figure>
         figures = soup.find_all('figure')
         print(f"تعداد تگ‌های <figure> پیدا شده توی صفحه وب: {len(figures)}")
         for figure in figures:
@@ -90,12 +92,10 @@ def crawl_captions(post_url, images_in_feed):
             figcaption = figure.find('figcaption')
             if img and figcaption:
                 img_src = img.get('src', '')
-                caption_text = figcaption.decode_contents().strip()  # نگه داشتن تگ‌های HTML داخل کپشن
+                caption_text = figcaption.decode_contents().strip()
                 filename = get_filename_from_url(img_src)
                 captions[filename] = caption_text
                 print(f"کپشن پیدا شده برای {filename}: {caption_text}")
-
-        # تطبیق کپشن‌ها با تصاویر توی فید
         matched_captions = {}
         for img in images_in_feed:
             img_src_match = re.search(r'src=["\'](.*?)["\']', img)
@@ -157,4 +157,40 @@ if 'content' in latest_post:
             value = remove_repeated_title(value, title)
             value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
             value = remove_newsbtc_links(value)
-            value
+            value, images = ensure_images(value)
+            # کرال کردن کپشن‌ها از صفحه وب
+            captions = crawl_captions(latest_post.link, images)
+            # ترجمه محتوای اصلی
+            translated_value = translate_with_gemini(value)
+            # اضافه کردن کپشن‌های کرال‌شده
+            translated_content = add_crawled_captions(translated_value, captions)
+            content += f"<br>{translated_content}"
+            break
+
+# جاستیفای کردن متن
+full_content = (
+    f'{thumbnail}<br>'
+    f'<div style="text-align:justify;">{content}</div>'
+    f'<div style="text-align:right;">'
+    f'<a href="{latest_post.link}" target="_blank">Source</a>'
+    f'</div>'
+) if thumbnail else (
+    f'<div style="text-align:justify;">{content}</div>'
+    f'<div style="text-align:right;">'
+    f'<a href="{latest_post.link}" target="_blank">Source</a>'
+    f'</div>'
+)
+
+# ساخت پست جدید
+blog_id = "764765195397447456"
+post_body = {
+    "kind": "blogger#post",
+    "title": translated_title,
+    "content": full_content
+}
+
+# ارسال پست
+request = service.posts().insert(blogId=blog_id, body=post_body)
+response = request.execute()
+
+print("پست با موفقیت ارسال شد:", response["url"])
