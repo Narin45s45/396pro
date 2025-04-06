@@ -19,7 +19,7 @@ creds_json = os.environ.get("CREDENTIALS"); assert creds_json, "CREDENTIALS پی
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
-# تابع ترجمه با Gemini (اصلاح تورفتگی در except)
+# تابع ترجمه با Gemini (اصلاح تورفتگی در try/except داخلی)
 def translate_with_gemini(text, target_lang="fa"):
     if not text or text.isspace(): return text
     headers = {"Content-Type": "application/json"}
@@ -49,16 +49,13 @@ def translate_with_gemini(text, target_lang="fa"):
         except requests.exceptions.Timeout:
              print(f"--- خطای Timeout (تلاش {attempt+1})")
              if attempt == max_retries: raise ValueError(f"Timeout پس از {max_retries+1} تلاش")
-             # *** اصلاح تورفتگی در خط زیر ***
              time.sleep(retry_delay)
-             continue # ادامه به تلاش بعدی
+             continue
         except requests.exceptions.RequestException as e:
              print(f"--- خطای شبکه (تلاش {attempt+1}): {e}")
              if attempt == max_retries: raise ValueError(f"خطای شبکه پس از {max_retries+1} تلاش: {e}") from e
-             # *** اصلاح تورفتگی در خط زیر ***
              time.sleep(retry_delay)
-             continue # ادامه به تلاش بعدی
-        # ... (مدیریت خطاهای 429 و سایر کدها مثل قبل) ...
+             continue
         if response.status_code == 429 and attempt < max_retries:
             wait_time = retry_delay * (attempt + 2)
             print(f"--- خطای Rate Limit (429). انتظار {wait_time} ثانیه...")
@@ -73,16 +70,26 @@ def translate_with_gemini(text, target_lang="fa"):
     if response is None or response.status_code != 200: raise ValueError(f"ترجمه پس از {max_retries+1} تلاش ناموفق بود.")
     result = response.json();
     if 'error' in result: raise ValueError(f"خطا در API Gemini: {result['error'].get('message', 'جزئیات نامشخص')}")
-    try: # ... (کد کامل بررسی پاسخ و استخراج متن ترجمه شده مثل قبل) ...
-        if not result.get("candidates"): feedback = result.get('promptFeedback', {}); block_reason = feedback.get('blockReason', 'نامشخص'); raise ValueError(f"API Response without candidates. Block Reason: {block_reason}.")
-        candidate = result["candidates"][0]; content = candidate.get("content");
+    try:
+        if not result.get("candidates"):
+             feedback = result.get('promptFeedback', {}); block_reason = feedback.get('blockReason', 'نامشخص')
+             raise ValueError(f"API Response without candidates. Block Reason: {block_reason}.")
+        candidate = result["candidates"][0]; content = candidate.get("content")
+        # بررسی محتوای خالی یا عدم وجود پارت‌ها
         if not content or not content.get("parts") or not content["parts"][0].get("text"):
-             finish_reason = candidate.get("finishReason", "نامشخص");
-             if text and not text.isspace() and finish_reason == "STOP": print(f"--- هشدار: ترجمه '{text[:50]}...' خروجی خالی بود."); return ""
-             elif text and not text.isspace(): raise ValueError(f"خروجی خالی یا ترجمه ناقص. دلیل: {finish_reason}.")
-             else: return ""
+             finish_reason = candidate.get("finishReason", "نامشخص")
+             # *** شروع بلوک if/elif/else با تورفتگی صحیح ***
+             if text and not text.isspace() and finish_reason == "STOP":
+                 print(f"--- هشدار: ترجمه '{text[:50]}...' خروجی خالی بود."); return ""
+             elif text and not text.isspace(): # هم سطح با if بالا
+                 raise ValueError(f"خروجی خالی یا ترجمه ناقص. دلیل: {finish_reason}.")
+             else: # هم سطح با if و elif بالا
+                 return ""
+             # *** پایان بلوک if/elif/else ***
         translated_text = content["parts"][0]["text"]
-    except (IndexError, KeyError, TypeError, ValueError) as e: raise ValueError(f"خطای پردازش پاسخ API برای '{text[:50]}...': {e}") from e
+    except (IndexError, KeyError, TypeError, ValueError) as e:
+        # اضافه کردن متن اصلی به پیام خطا برای کمک به اشکال‌زدایی
+        raise ValueError(f"خطای پردازش پاسخ API برای '{text[:50]}...': {e}") from e
     return translated_text.strip()
 
 
@@ -121,12 +128,12 @@ thumbnail = ""
 # ... (کد یافتن thumbnail) ...
 if hasattr(latest_post, 'media_content') and isinstance(latest_post.media_content, list) and latest_post.media_content:
     media=latest_post.media_content[0];
-    if isinstance(media, dict) and 'url' in media: thumbnail_url = media['url']; #... (بقیه کد thumbnail) ...
+    if isinstance(media, dict) and 'url' in media: thumbnail_url = media['url'];
          if thumbnail_url.startswith(('http://', 'https://')): thumbnail = f'<div style="text-align:center;"><img src="{thumbnail_url}" alt="{translated_title}" style="max-width:100%; height:auto;"></div>'
-elif 'links' in latest_post: # ... (کد thumbnail از links) ...
+elif 'links' in latest_post:
      for link_info in latest_post.links:
          if link_info.get('rel') == 'enclosure' and link_info.get('type','').startswith('image/'):
-             thumbnail_url = link_info.get('href'); #... (بقیه کد thumbnail) ...
+             thumbnail_url = link_info.get('href');
              if thumbnail_url and thumbnail_url.startswith(('http://', 'https://')): thumbnail = f'<div style="text-align:center;"><img src="{thumbnail_url}" alt="{translated_title}" style="max-width:100%; height:auto;"></div>'; break
 
 
@@ -157,10 +164,8 @@ if content_source:
         print(f"--- جستجو و پردازش ساده شده {len(soup.find_all('figcaption'))} تگ <figcaption> (فقط متن)...")
         for i, figcaption in enumerate(soup.find_all('figcaption')):
             if figcaption in processed_elements: continue
-
             print(f"--- پردازش Figcaption [{i+1}] (فقط متن): {str(figcaption)[:100]}...")
             original_text = figcaption.get_text(" ", strip=True)
-
             if original_text:
                 try:
                     translated_text = translate_with_gemini(original_text)
@@ -170,102 +175,83 @@ if content_source:
                         figcaption['style'] = f"text-align:center; font-size:small; direction:rtl; color:#555; margin-top: 5px; {figcaption.get('style', '')}"
                         print(f"--- DEBUG: Figcaption [{i+1}] با متن ترجمه شده جایگزین شد (لینک‌های داخلی حذف شدند).")
                         processed_elements.add(figcaption)
-                        for desc in figcaption.find_all(['a', 'strong', 'em', 'span'], string=True): # علامت‌گذاری اجزای داخلی که حذف شدند
-                             processed_elements.add(desc)
-                        for txt_node in figcaption.find_all(string=True): processed_elements.add(txt_node) # علامت‌گذاری متن جدید
+                        for desc in figcaption.find_all(True): processed_elements.add(desc)
+                        for txt_node in figcaption.find_all(string=True): processed_elements.add(txt_node)
                     else: print(f"--- هشدار: Figcaption [{i+1}] والد ندارد!")
                     time.sleep(0.2)
                 except Exception as e:
                     print(f"--- خطا در ترجمه/جایگزینی متن کپشن {i+1}: {e}. استفاده از متن اصلی (با حذف لینک‌ها).")
                     if figcaption.parent is not None:
-                         figcaption.clear()
-                         figcaption.append(NavigableString(original_text))
+                         figcaption.clear(); figcaption.append(NavigableString(original_text))
                          figcaption['style'] = f"text-align:center; font-size:small; direction:rtl; color:#555; margin-top: 5px; {figcaption.get('style', '')}"
-                         processed_elements.add(figcaption) # علامت‌گذاری
+                         processed_elements.add(figcaption)
                     time.sleep(0.5)
             else:
                 processed_elements.add(figcaption)
                 print(f"--- DEBUG: Figcaption [{i+1}] متنی برای ترجمه نداشت.")
-
 
         # 4. استخراج و پردازش بقیه متن‌های معمولی و لینک‌ها
         print("--- استخراج و پردازش بقیه متن‌ها...")
         text_nodes_to_process = []
         a_tags_to_process = []
         text_parent_tags = ['p', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'em', 'strong', 'td', 'th']
-
         # استفاده از string=True
         for element in soup.find_all(string=True):
-            # بررسی دقیقتر برای رد کردن موارد پردازش شده یا داخل موارد پردازش شده
-            skip = False
-            curr = element
+            skip = False; curr = element
             while curr:
-                if curr in processed_elements:
-                    skip = True; break
+                if curr in processed_elements: skip = True; break
                 curr = curr.parent
             if skip: continue
-
             element_text = element.string
             if not element_text or element_text.isspace(): continue
-
             is_inside_a = False; curr = element.parent
             while curr:
                 if curr.name == 'a': is_inside_a = True; break
                 curr = curr.parent
-
             if not is_inside_a and element.parent.name in text_parent_tags:
                 text_nodes_to_process.append((element, element_text))
-                processed_elements.add(element) # علامت‌گذاری متن معمولی
+                processed_elements.add(element)
 
         for a_tag in soup.find_all('a'):
-             # بررسی دقیقتر برای رد کردن موارد پردازش شده
              if a_tag in processed_elements: continue
-             skip = False
-             curr = a_tag.parent
+             skip = False; curr = a_tag.parent
              while curr:
                  if curr in processed_elements: skip=True; break
                  curr = curr.parent
              if skip: continue
-
              link_text = a_tag.get_text(" ", strip=True)
              if link_text:
                  a_tags_to_process.append((a_tag, link_text))
-                 processed_elements.add(a_tag) # علامت‌گذاری لینک
+                 processed_elements.add(a_tag)
 
         print(f"--- یافت شد {len(text_nodes_to_process)} متن معمولی و {len(a_tags_to_process)} متن لینک باقیمانده.")
 
         # 5. ترجمه تک به تک متن‌های معمولی باقیمانده
-        # ... (حلقه ترجمه متن‌های معمولی مثل قبل) ...
         successful_text_translations = 0; current_segment = 0; total_remaining = len(text_nodes_to_process) + len(a_tags_to_process)
         print(f"--- شروع ترجمه و جایگزینی {len(text_nodes_to_process)} متن معمولی باقیمانده...")
-        # ... (کد کامل حلقه با try/except و time.sleep مثل قبل) ...
         for i, (node, original_text) in enumerate(text_nodes_to_process):
             current_segment+=1; print(f"--- پردازش متن معمولی {current_segment}/{total_remaining}...")
-            try: translated_text = translate_with_gemini(original_text); # ... (بقیه کد جایگزینی) ...
-                 if node.parent is None: print(f"--- هشدار: گره متن باقیمانده {i+1} والد ندارد!"); continue 
+            try: translated_text = translate_with_gemini(original_text);
+                 if node.parent is None: print(f"--- هشدار: گره متن باقیمانده {i+1} والد ندارد!"); continue
                  if hasattr(node, 'replace_with'): node.replace_with(NavigableString(translated_text)); successful_text_translations += 1
                  else: print(f"--- هشدار: گره متن باقیمانده {i+1} خاصیت replace_with ندارد.");
-                 time.sleep(0.2) 
-            except Exception as e: print(f"--- خطا در ترجمه/جایگزینی متن باقیمانده {i+1} ('{original_text[:30]}...'): {e}. استفاده از متن اصلی."); time.sleep(0.5) 
+                 time.sleep(0.2)
+            except Exception as e: print(f"--- خطا در ترجمه/جایگزینی متن باقیمانده {i+1} ('{original_text[:30]}...'): {e}. استفاده از متن اصلی."); time.sleep(0.5)
         print(f"--- ترجمه {successful_text_translations} از {len(text_nodes_to_process)} متن معمولی باقیمانده موفق بود.")
 
-
         # 6. ترجمه تک به تک متن لینک‌های باقیمانده
-        # ... (حلقه ترجمه لینک‌ها مثل قبل) ...
         successful_link_translations = 0
         print(f"--- شروع ترجمه و جایگزینی {len(a_tags_to_process)} متن لینک باقیمانده...")
-        # ... (کد کامل حلقه با try/except و time.sleep مثل قبل) ...
         for i, (a_tag, original_text) in enumerate(a_tags_to_process):
             current_segment+=1; print(f"--- پردازش متن لینک {current_segment}/{total_remaining}...")
-            try: translated_text = translate_with_gemini(original_text); # ... (بقیه کد جایگزینی) ...
+            try: translated_text = translate_with_gemini(original_text);
                  if a_tag.parent is not None: a_tag.clear(); a_tag.append(NavigableString(translated_text)); successful_link_translations +=1
-                 else: print(f"--- هشدار: تگ لینک باقیمانده {i+1} والد ندارد!"); 
-                 time.sleep(0.2) 
-            except Exception as e: print(f"--- خطا در ترجمه/جایگزینی متن لینک باقیمانده {i+1} ('{original_text[:30]}...'): {e}. استفاده از متن اصلی."); # ... (کد بازگرداندن متن اصلی) ...
+                 else: print(f"--- هشدار: تگ لینک باقیمانده {i+1} والد ندارد!");
+                 time.sleep(0.2)
+            except Exception as e: print(f"--- خطا در ترجمه/جایگزینی متن لینک باقیمانده {i+1} ('{original_text[:30]}...'): {e}. استفاده از متن اصلی.");
                  if a_tag.parent is not None: a_tag.clear(); a_tag.append(NavigableString(original_text))
                  time.sleep(0.5)
         print(f"--- ترجمه {successful_link_translations} از {len(a_tags_to_process)} متن لینک باقیمانده موفق بود.")
-
 
         # 7. اعمال استایل به عکس‌ها
         print("--- اعمال استایل به عکس‌ها...")
@@ -287,13 +273,13 @@ else:
 # ساختار نهایی پست
 # ... (مثل قبل) ...
 print("در حال ساختاردهی پست نهایی...")
-full_content_parts = []; # ... (کد کامل مثل قبل) ...
+full_content_parts = [];
 if thumbnail: full_content_parts.append(thumbnail); full_content_parts.append('<br>')
 if content_html: full_content_parts.append(f'<div style="text-align:justify;direction:rtl;">{content_html}</div>')
 else: full_content_parts.append('<div style="text-align:center;direction:rtl;">[محتوای مقاله یافت نشد یا قابل پردازش نبود]</div>')
 post_link = getattr(latest_post, 'link', None)
 if post_link and post_link.startswith(('http://', 'https://')):
-    full_content_parts.append(f'<div style="text-align:right;direction:rtl;margin-top:15px;">'); # ... (بقیه کد لینک منبع) ...
+    full_content_parts.append(f'<div style="text-align:right;direction:rtl;margin-top:15px;">');
     full_content_parts.append(f'<a href="{post_link}" target="_blank" rel="noopener noreferrer">منبع</a>'); full_content_parts.append(f'</div>')
 else: print("لینک منبع معتبر یافت نشد.")
 full_content = "".join(full_content_parts)
@@ -306,8 +292,8 @@ post_body = { "kind": "blogger#post", "blog": {"id": blog_id}, "title": translat
 print("در حال ارسال پست به بلاگر...")
 # ... (کد کامل ارسال مثل قبل با raise خطا) ...
 try: request = service.posts().insert(blogId=blog_id, body=post_body, isDraft=False); response = request.execute(); print("پست با موفقیت ارسال شد:", response.get("url", "URL نامشخص"))
-except Exception as e: print(f"خطای شدید هنگام ارسال پست به بلاگر: {e}"); # ... (چاپ جزئیات خطا) ...
-     if hasattr(e, 'content'): # ... (چاپ جزئیات) ...
+except Exception as e: print(f"خطای شدید هنگام ارسال پست به بلاگر: {e}");
+     if hasattr(e, 'content'):
         try: error_details = json.loads(e.content); print(f"جزئیات خطا از API بلاگر: {error_details}")
         except json.JSONDecodeError: print(f"محتوای خطا (غیر JSON): {e.content}")
      raise e
