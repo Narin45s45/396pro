@@ -30,7 +30,7 @@ service = build("blogger", "v3", credentials=creds)
 def translate_with_gemini(text, target_lang="fa", retries=3, delay=5):
     headers = {"Content-Type": "application/json"}
     prompt = f"""
-    Translate the following text to Persian (Farsi). Do not modify any HTML tags, attributes, or code parameters (like style, class, href, etc.). Only translate the visible text content, including text inside <blockquote> tags. Do not translate URLs, code, or attribute values. Here is the text:
+   Only translate the visible text content Here is the text:
 
     {text}
     """
