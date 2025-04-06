@@ -27,7 +27,7 @@ def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
     prompt = (
         f"Please translate the following English text (which might contain HTML tags) into {target_lang} "
-        f"with the utmost intelligence and precision. Pay close attention to context and Nuance.\n"
+        f"with the utmost intelligence and precision. Pay close attention to context and nuance.\n"
         f"IMPORTANT TRANSLATION RULES:\n"
         f"1. Translate ALL text content, including text inside HTML tags like <p>, <li>, and especially <blockquote>. Do not skip any content.\n"
         f"2. For technical terms or English words commonly used in the field (like cryptocurrency, finance, technology), "
@@ -94,11 +94,12 @@ def upload_image_to_blogger(image_url):
         # حذف پست موقت
         service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
         
-        if uploaded_url != image_url and "blogger" in uploaded_url.lower():
+        # چک کردن اینکه URL تغییر کرده
+        if uploaded_url != image_url:
             print(f"آپلود موفق: {image_url} -> {uploaded_url}")
             return uploaded_url
         else:
-            print(f"URL آپلودشده تغییر نکرد یا نامعتبر است: {uploaded_url}")
+            print(f"URL آپلودشده تغییر نکرد: {uploaded_url}")
             return image_url
     except requests.RequestException as e:
         print(f"خطا در دانلود {image_url}: {e}")
