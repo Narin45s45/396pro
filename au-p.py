@@ -39,7 +39,7 @@ def translate_with_gemini(text, target_lang="fa"):
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {" Graphics": 0.5}
+        "generationConfig": {"temperature": 0.5}  # اصلاح خطای "Graphics"
     }
     max_retries = 2
     retry_delay = 5
@@ -73,7 +73,7 @@ def upload_image_to_blogger(image_url):
         image_content = response.content
         image_name = image_url.split('/')[-1]
         
-        # ساخت پست موقت برای آپلود
+        # آپلود به بلاگر با پست موقت
         temp_post = {
             "kind": "blogger#post",
             "blog": {"id": blog_id},
@@ -90,8 +90,13 @@ def upload_image_to_blogger(image_url):
         # حذف پست موقت
         service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
         
-        print(f"آپلود موفق: {image_url} -> {uploaded_url}")
-        return uploaded_url
+        # چک کردن اینکه URL واقعاً تغییر کرده
+        if uploaded_url != image_url and "blogger" in uploaded_url:
+            print(f"آپلود موفق: {image_url} -> {uploaded_url}")
+            return uploaded_url
+        else:
+            print(f"URL آپلودشده تغییر نکرد: {uploaded_url}")
+            return image_url
     except requests.RequestException as e:
         print(f"خطا در دانلود {image_url}: {e}")
         return image_url
@@ -195,7 +200,7 @@ try:
     print(f"عنوان: {translated_title}")
 except Exception as e:
     print(f"خطا در ترجمه عنوان: {e}")
-    translated_title = latest_post.title
+    translated_title = None  # اگه خطا داد، None می‌ذاریم
 
 # عکس پوستر
 thumbnail = ""
@@ -204,12 +209,13 @@ if hasattr(latest_post, 'media_content') and latest_post.media_content:
     if thumbnail_url.startswith('http'):
         if "twimg.com" in thumbnail_url:
             thumbnail_url = upload_image_to_blogger(thumbnail_url)
-        thumbnail = f'<div style="text-align:center;"><img src="{thumbnail_url}" alt="{translated_title}" style="max-width:100%; height:auto;"></div>'
+        thumbnail = f'<div style="text-align:center;"><img src="{thumbnail_url}" alt="{translated_title or latest_post.title}" style="max-width:100%; height:auto;"></div>'
     print(f"عکس پوستر: {thumbnail_url}")
 
 # پردازش محتوا
 print("پردازش محتوا...")
 content_source = latest_post.content[0]['value'] if 'content' in latest_post else latest_post.summary if 'summary' in latest_post else ""
+content_html = None
 if content_source:
     content_cleaned = re.split(r'Related Reading|Read Also|See Also', content_source, flags=re.IGNORECASE)[0].strip()
     content_cleaned = remove_newsbtc_links(content_cleaned)
@@ -227,31 +233,30 @@ if content_source:
         )
         print(f"محتوای ترجمه‌شده (طول): {len(content_html)} کاراکتر")
     except Exception as e:
-        print(f"خطا در ترجمه: {e}")
-        content_html = f"<p><i>[خطا در ترجمه]</i></p><div style='text-align:left; direction:ltr;'>{content_with_uploaded_images}</div>"
-else:
-    print("محتوایی یافت نشد.")
-    content_html = "\n".join([item["caption"] for item in captions_with_images]) if captions_with_images else ""
+        print(f"خطا در ترجمه محتوا: {e}")
+        content_html = None
 
-# ساختار پست
-full_content_parts = []
-if thumbnail:
-    full_content_parts.append(thumbnail)
-    full_content_parts.append('<br>')
-if content_html:
+# ساختار پست (فقط اگه ترجمه موفق باشه)
+if translated_title and content_html:
+    full_content_parts = []
+    if thumbnail:
+        full_content_parts.append(thumbnail)
+        full_content_parts.append('<br>')
     full_content_parts.append(f'<div style="text-align:justify;direction:rtl;">{content_html}</div>')
-if post_link:
-    full_content_parts.append(f'<div style="text-align:right;direction:rtl;margin-top:15px;"><a href="{post_link}" target="_blank" rel="noopener noreferrer">منبع</a></div>')
+    if post_link:
+        full_content_parts.append(f'<div style="text-align:right;direction:rtl;margin-top:15px;"><a href="{post_link}" target="_blank" rel="noopener noreferrer">منبع</a></div>')
 
-full_content = "".join(full_content_parts)
-print(f"محتوای نهایی (طول): {len(full_content)} کاراکتر")
-print(f"محتوای نهایی (پیش‌نمایش): {full_content[:500]}...")
+    full_content = "".join(full_content_parts)
+    print(f"محتوای نهایی (طول): {len(full_content)} کاراکتر")
+    print(f"محتوای نهایی (پیش‌نمایش): {full_content[:500]}...")
 
-# ارسال به بلاگر
-print("ارسال به بلاگر...")
-try:
-    request = service.posts().insert(blogId=blog_id, body={"kind": "blogger#post", "blog": {"id": blog_id}, "title": translated_title, "content": full_content}, isDraft=False)
-    response = request.execute()
-    print("پست ارسال شد:", response.get("url", "URL نامشخص"))
-except Exception as e:
-    print(f"خطا در ارسال: {e}")
+    # ارسال به بلاگر
+    print("ارسال به بلاگر...")
+    try:
+        request = service.posts().insert(blogId=blog_id, body={"kind": "blogger#post", "blog": {"id": blog_id}, "title": translated_title, "content": full_content}, isDraft=False)
+        response = request.execute()
+        print("پست ارسال شد:", response.get("url", "URL نامشخص"))
+    except Exception as e:
+        print(f"خطا در ارسال: {e}")
+else:
+    print("ترجمه ناموفق بود. پست ارسال نمی‌شود.")
