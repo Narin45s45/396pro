@@ -7,7 +7,6 @@ from googleapiclient.discovery import build
 import re
 from bs4 import BeautifulSoup
 import time
-import base64
 
 # تنظیمات
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -22,7 +21,7 @@ creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 blog_id = "764765195397447456"
 
-# تابع ترجمه با Gemini
+# تابع ترجمه
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
     prompt = (
@@ -46,25 +45,26 @@ def translate_with_gemini(text, target_lang="fa"):
     retry_delay = 5
     for attempt in range(max_retries + 1):
         response = requests.post(f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=payload)
+        print(f"وضعیت ترجمه (تلاش {attempt+1}): {response.status_code}")
         if response.status_code == 200:
             break
         elif response.status_code == 429 and attempt < max_retries:
-            print(f"خطای Rate Limit (429). منتظر ماندن برای {retry_delay} ثانیه...")
+            print(f"خطای Rate Limit (429). منتظر {retry_delay} ثانیه...")
             time.sleep(retry_delay)
         else:
-            raise ValueError(f"خطا در درخواست API: کد وضعیت {response.status_code}, پاسخ: {response.text}")
+            raise ValueError(f"خطا در ترجمه: کد {response.status_code}, پاسخ: {response.text}")
     result = response.json()
     if 'error' in result:
         raise ValueError(f"خطا در API Gemini: {result['error'].get('message', 'جزئیات نامشخص')}")
     translated_text = result["candidates"][0]["content"]["parts"][0]["text"]
+    print(f"طول متن ترجمه‌شده: {len(translated_text)} کاراکتر")
     return translated_text.strip()
 
-# تابع حذف لینک‌های newsbtc
+# تابع حذف لینک‌ها
 def remove_newsbtc_links(text):
-    pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
-    return re.sub(pattern, r'\2', text, flags=re.IGNORECASE)
+    return re.sub(r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>', r'\2', text, flags=re.IGNORECASE)
 
-# تابع آپلود عکس به بلاگر و برگرداندن URL
+# تابع آپلود عکس
 def upload_image_to_blogger(image_url):
     try:
         response = requests.get(image_url, stream=True)
@@ -72,45 +72,41 @@ def upload_image_to_blogger(image_url):
         image_content = response.content
         image_name = image_url.split('/')[-1]
         
-        # بلاگر API مستقیم برای آپلود عکس نداره، پس از base64 توی محتوا استفاده می‌کنیم
-        base64_image = base64.b64encode(image_content).decode('utf-8')
-        uploaded_html = f'<img src="data:image/jpeg;base64,{base64_image}" alt="{image_name}" style="max-width:100%; height:auto;">'
-        
-        # تست آپلود توی پست موقت برای گرفتن URL واقعی (اختیاری)
+        # آپلود مستقیم توی پست موقت و گرفتن URL
         temp_post = {
             "kind": "blogger#post",
             "blog": {"id": blog_id},
-            "title": "Temporary Image Upload",
-            "content": uploaded_html
+            "title": "Temp Image",
+            "content": f'<img src="{image_url}" alt="{image_name}" style="max-width:100%; height:auto;">'
         }
         request = service.posts().insert(blogId=blog_id, body=temp_post, isDraft=True)
         temp_response = request.execute()
         
         soup = BeautifulSoup(temp_response['content'], "html.parser")
         uploaded_url = soup.find("img")["src"]
-        
         service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
         
-        print(f"عکس {image_url} به {uploaded_url} آپلود شد.")
+        print(f"آپلود {image_url} به {uploaded_url}")
         return uploaded_url
     except Exception as e:
-        print(f"خطا در آپلود عکس {image_url}: {e}")
+        print(f"خطا در آپلود {image_url}: {e}")
         return image_url
 
-# تابع جایگزینی URLهای twimg.com
+# تابع جایگزینی URLها
 def replace_twimg_urls(content):
     soup = BeautifulSoup(content, "html.parser")
     images = soup.find_all("img")
+    print(f"تعداد عکس‌ها: {len(images)}")
     for img in images:
         src = img.get("src", "")
-        print(f"بررسی عکس: {src}")
+        print(f"عکس: {src}")
         if "twimg.com" in src:
             new_url = upload_image_to_blogger(src)
-            print(f"جایگزینی {src} با {new_url}")
             img["src"] = new_url
+            print(f"جایگزینی {src} با {new_url}")
     return str(soup)
 
-# تابع کرال کردن کپشن‌ها
+# تابع کرال کپشن‌ها
 def crawl_captions(post_url):
     try:
         response = requests.get(post_url)
@@ -136,17 +132,16 @@ def crawl_captions(post_url):
             print(f"کپشن {i}: {item['caption']} (عکس: {item['image_url']})")
         return captions_with_images
     except Exception as e:
-        print(f"خطا در کرال کردن {post_url}: {e}")
+        print(f"خطا در کرال {post_url}: {e}")
         return []
 
-# تابع اضافه کردن کپشن‌ها (وسط‌چین)
+# تابع اضافه کردن کپشن‌ها
 def add_captions_to_images(content, captions_with_images):
     if not captions_with_images:
-        print("هیچ کپشنی وجود ندارد.")
+        print("کپشنی وجود ندارد.")
         return content
     soup = BeautifulSoup(content, "html.parser")
     images = soup.find_all("img")
-    print(f"تعداد عکس‌ها در محتوا: {len(images)}")
     used_captions = set()
 
     for img in images:
@@ -162,26 +157,22 @@ def add_captions_to_images(content, captions_with_images):
             caption_tag = BeautifulSoup(matching_caption, "html.parser")
             parent.append(caption_tag)
             used_captions.add(matching_caption)
-            print(f"کپشن وسط‌چین به {img_url}: {matching_caption}")
+            print(f"کپشن به {img_url}: {matching_caption}")
 
     remaining_captions = [item["caption"] for item in captions_with_images if item["caption"] not in used_captions]
     if remaining_captions:
-        print("کپشن‌های اضافی:")
-        for caption in remaining_captions:
-            print(caption)
         soup.append(BeautifulSoup(f'<div style="text-align: center;">{"".join(remaining_captions)}</div>', "html.parser"))
-
     return str(soup)
 
 # پردازش RSS
-print("دریافت فید RSS...")
+print("دریافت RSS...")
 feed = feedparser.parse(RSS_FEED_URL)
 if not feed.entries:
     print("پستی یافت نشد.")
     exit()
 
 latest_post = feed.entries[0]
-print(f"پست جدید: '{latest_post.title}'")
+print(f"پست: '{latest_post.title}'")
 
 # کرال کپشن‌ها
 post_link = getattr(latest_post, 'link', None)
@@ -224,7 +215,7 @@ if content_source:
             translated_html_content,
             flags=re.IGNORECASE
         )
-        print("ترجمه انجام شد.")
+        print(f"محتوای ترجمه‌شده (طول): {len(content_html)} کاراکتر")
     except Exception as e:
         print(f"خطا در ترجمه: {e}")
         content_html = f"<p><i>[خطا در ترجمه]</i></p><div style='text-align:left; direction:ltr;'>{content_with_uploaded_images}</div>"
@@ -243,6 +234,8 @@ if post_link:
     full_content_parts.append(f'<div style="text-align:right;direction:rtl;margin-top:15px;"><a href="{post_link}" target="_blank" rel="noopener noreferrer">منبع</a></div>')
 
 full_content = "".join(full_content_parts)
+print(f"محتوای نهایی (طول): {len(full_content)} کاراکتر")
+print(f"محتوای نهایی (پیش‌نمایش): {full_content[:500]}...")  # 500 کاراکتر اول
 
 # ارسال به بلاگر
 print("ارسال به بلاگر...")
