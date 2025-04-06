@@ -108,10 +108,53 @@ def crawl_captions(post_url, images_in_feed):
                         print(f"تطبیق موفق: {img_src} -> {caption}")
                         break
                 else:
-                    # اگه کپشن پیدا نشد، از alt استفاده می‌کنیم
-                    alt_match = re.search(r'alt=["\'](.*?)["\']', img)
-                    if alt_match and alt_match.group(1).strip():
-                        alt_text = alt_match.group(1).strip()
-                        if not re.match(r'[\U0001F600-\U0001F64F]', alt_text):  # اگه ایموجی نبود
-                            matched_captions[img] = alt_text
-                            print(f"افت‌بک به alt برای {img_src}: {alt
+                    print(f"کپشن برای {img_src} پیدا نشد")
+        return matched_captions
+    except Exception as e:
+        print(f"خطا در کرال کردن کپشن‌ها: {e}")
+        return {}
+
+# تابع اضافه کردن کپشن‌های کرال‌شده
+def add_crawled_captions(content, captions):
+    for img, caption in captions.items():
+        translated_caption = translate_with_gemini(caption)
+        new_content = f'{img}<p style="text-align:center;font-style:italic;">{translated_caption}</p>'
+        content = content.replace(img, new_content)
+    return content
+
+# تابع اطمینان از نمایش همه تصاویر
+def ensure_images(content):
+    img_tags = re.findall(r'<img[^>]+>', content)
+    print(f"تعداد تصاویر توی فید: {len(img_tags)}")
+    return content, img_tags
+
+# گرفتن اخبار از RSS
+feed = feedparser.parse(RSS_FEED_URL)
+latest_post = feed.entries[0]
+
+# آماده‌سازی متن پست
+title = latest_post.title
+content = ""
+
+# ترجمه عنوان
+translated_title = translate_with_gemini(title)
+translated_title = re.sub(r'<[^>]+>', '', translated_title)
+
+# اضافه کردن عکس پوستر
+thumbnail = ""
+if hasattr(latest_post, 'media_content'):
+    for media in latest_post.media_content:
+        if 'url' in media:
+            thumbnail = f'<div style="text-align:center;"><img src="{media["url"]}" alt="{translated_title}"></div>'
+            break
+
+# فقط از content استفاده می‌کنیم
+if 'content' in latest_post:
+    for item in latest_post.content:
+        if 'value' in item:
+            value = item['value'].split("Related Reading")[0].strip()
+            print("محتوای خام فید:", value)
+            value = remove_repeated_title(value, title)
+            value = value.replace('<img ', '<img style="display:block;margin-left:auto;margin-right:auto;" ')
+            value = remove_newsbtc_links(value)
+            value
