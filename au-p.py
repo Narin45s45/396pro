@@ -94,13 +94,15 @@ def upload_image_to_blogger(image_url):
         # حذف پست موقت
         service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
         
-        # چک کردن اینکه URL تغییر کرده
-        if uploaded_url != image_url:
+        # چک کردن URL
+        if uploaded_url.startswith('data:image'):
+            print(f"هشدار: URL هنوز base64 است: {uploaded_url[:50]}...")
+        elif "blogger" in uploaded_url.lower() or "blogspot" in uploaded_url.lower():
             print(f"آپلود موفق: {image_url} -> {uploaded_url}")
             return uploaded_url
         else:
-            print(f"URL آپلودشده تغییر نکرد: {uploaded_url}")
-            return image_url
+            print(f"URL نامعتبر: {uploaded_url}")
+        return uploaded_url
     except requests.RequestException as e:
         print(f"خطا در دانلود {image_url}: {e}")
         return image_url
@@ -254,7 +256,10 @@ if translated_title and content_html:
     print(f"محتوای نهایی (طول): {len(full_content)} کاراکتر")
     print(f"محتوای نهایی (پیش‌نمایش): {full_content[:500]}...")
 
-    # ارسال به بلاگر
+    # چک کردن اندازه و ارسال به بلاگر
+    if len(full_content) > 10000:  # محدودیت دلخواه، می‌تونی تست کنی
+        print("هشدار: محتوا خیلی طولانیه، ممکنه بلاگر نصفش رو نشون نده.")
+    
     print("ارسال به بلاگر...")
     try:
         request = service.posts().insert(blogId=blog_id, body={"kind": "blogger#post", "blog": {"id": blog_id}, "title": translated_title, "content": full_content}, isDraft=False)
