@@ -6,6 +6,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import re
 from bs4 import BeautifulSoup
+import time
 
 # تنظیمات فید RSS
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
@@ -23,7 +24,7 @@ if not creds_json:
 creds = Credentials.from_authorized_user_info(json.loads(creds_json))
 service = build("blogger", "v3", credentials=creds)
 
-# تابع ترجمه با Gemini (بدون تغییر)
+# تابع ترجمه با Gemini
 def translate_with_gemini(text, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
     prompt = (
@@ -60,10 +61,53 @@ def translate_with_gemini(text, target_lang="fa"):
     translated_text = result["candidates"][0]["content"]["parts"][0]["text"]
     return translated_text.strip()
 
-# تابع حذف لینک‌های newsbtc (بدون تغییر)
+# تابع حذف لینک‌های newsbtc
 def remove_newsbtc_links(text):
     pattern = r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>'
     return re.sub(pattern, r'\2', text, flags=re.IGNORECASE)
+
+# تابع آپلود عکس به بلاگر
+def upload_image_to_blogger(image_url, blog_id):
+    try:
+        # دانلود عکس
+        response = requests.get(image_url, stream=True)
+        response.raise_for_status()
+        image_content = response.content
+        image_name = image_url.split('/')[-1]
+
+        # آپلود به بلاگر (بلاگر مستقیماً API برای آپلود عکس نداره، باید پست موقت بسازیم)
+        temp_post = {
+            "kind": "blogger#post",
+            "blog": {"id": blog_id},
+            "title": "Temporary Image Upload",
+            "content": f'<img src="data:image/jpeg;base64,{image_content.encode("base64").decode("utf-8")}" alt="temp">'
+        }
+        request = service.posts().insert(blogId=blog_id, body=temp_post, isDraft=True)
+        temp_response = request.execute()
+        
+        # استخراج URL عکس آپلود شده
+        soup = BeautifulSoup(temp_response['content'], "html.parser")
+        uploaded_url = soup.find("img")["src"]
+        
+        # حذف پست موقت
+        service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
+        
+        print(f"عکس {image_url} با موفقیت به {uploaded_url} آپلود شد.")
+        return uploaded_url
+    except Exception as e:
+        print(f"خطا در آپلود عکس {image_url}: {e}")
+        return image_url  # در صورت خطا، URL اصلی رو برمی‌گردونیم
+
+# تابع جایگزینی URLهای twimg.com
+def replace_twimg_urls(content, blog_id):
+    soup = BeautifulSoup(content, "html.parser")
+    images = soup.find_all("img")
+    for img in images:
+        src = img.get("src", "")
+        if "twimg.com" in src:
+            new_url = upload_image_to_blogger(src, blog_id)
+            img["src"] = new_url
+    return str(soup)
 
 # تابع کرال کردن کپشن‌ها با تطابق عکس
 def crawl_captions(post_url):
@@ -104,7 +148,7 @@ def crawl_captions(post_url):
         print(f"خطا در کرال کردن {post_url}: {e}")
         return []
 
-# تابع قرار دادن کپشن‌ها زیر عکس‌های مرتبط
+# تابع قرار دادن کپشن‌ها زیر عکس‌های مرتبط (وسط‌چین)
 def add_captions_to_images(content, captions_with_images):
     if not captions_with_images:
         print("هیچ کپشنی برای اضافه کردن وجود ندارد.")
@@ -125,12 +169,13 @@ def add_captions_to_images(content, captions_with_images):
             parent = img.parent
             if parent.name != "figure":
                 figure = soup.new_tag("figure")
+                figure["style"] = "text-align: center;"  # وسط‌چین کردن کپشن
                 img.wrap(figure)
                 parent = img.parent
             caption_tag = BeautifulSoup(matching_caption, "html.parser")
             parent.append(caption_tag)
             used_captions.add(matching_caption)
-            print(f"کپشن اضافه‌شده به عکس {img_url}: {matching_caption}")
+            print(f"کپشن وسط‌چین‌شده به عکس {img_url}: {matching_caption}")
 
     # اضافه کردن کپشن‌های بدون عکس به انتها
     remaining_captions = [item["caption"] for item in captions_with_images if item["caption"] not in used_captions]
@@ -138,7 +183,7 @@ def add_captions_to_images(content, captions_with_images):
         print("کپشن‌های اضافی به انتها اضافه می‌شوند:")
         for caption in remaining_captions:
             print(caption)
-        soup.append(BeautifulSoup("\n".join(remaining_captions), "html.parser"))
+        soup.append(BeautifulSoup(f'<div style="text-align: center;">{"".join(remaining_captions)}</div>', "html.parser"))
 
     return str(soup)
 
@@ -164,6 +209,7 @@ else:
 # آماده‌سازی متن پست
 title = latest_post.title
 content_html = ""
+blog_id = "764765195397447456"
 
 # ترجمه عنوان
 print("در حال ترجمه عنوان...")
@@ -179,6 +225,8 @@ thumbnail = ""
 if hasattr(latest_post, 'media_content') and latest_post.media_content:
     thumbnail_url = latest_post.media_content[0].get('url', '')
     if thumbnail_url.startswith('http://') or thumbnail_url.startswith('https://'):
+        if "twimg.com" in thumbnail_url:
+            thumbnail_url = upload_image_to_blogger(thumbnail_url, blog_id)
         thumbnail = f'<div style="text-align:center;"><img src="{thumbnail_url}" alt="{translated_title}" style="max-width:100%; height:auto;"></div>'
 
 # پردازش محتوا
@@ -189,9 +237,12 @@ if content_source:
     content_cleaned = remove_newsbtc_links(content_cleaned)
     content_with_captions = add_captions_to_images(content_cleaned, captions_with_images)
     
+    # جایگزینی عکس‌های twimg.com
+    content_with_uploaded_images = replace_twimg_urls(content_with_captions, blog_id)
+    
     print("در حال ترجمه محتوا...")
     try:
-        translated_html_content = translate_with_gemini(content_with_captions)
+        translated_html_content = translate_with_gemini(content_with_uploaded_images)
         content_html = re.sub(
             r'<img\s+', 
             '<img style="display:block;margin-left:auto;margin-right:auto;max-width:100%;height:auto;" ',
@@ -201,7 +252,7 @@ if content_source:
         print("ترجمه محتوا انجام شد.")
     except Exception as e:
         print(f"خطا در ترجمه محتوا: {e}")
-        content_html = f"<p><i>[خطا در ترجمه]</i></p><div style='text-align:left; direction:ltr;'>{content_with_captions}</div>"
+        content_html = f"<p><i>[خطا در ترجمه]</i></p><div style='text-align:left; direction:ltr;'>{content_with_uploaded_images}</div>"
 else:
     print("محتوایی یافت نشد.")
     content_html = "\n".join([item["caption"] for item in captions_with_images]) if captions_with_images else ""
@@ -219,17 +270,9 @@ if post_link:
 full_content = "".join(full_content_parts)
 
 # ارسال به بلاگر
-blog_id = "764765195397447456"
-post_body = {
-    "kind": "blogger#post",
-    "blog": {"id": blog_id},
-    "title": translated_title,
-    "content": full_content
-}
-
 print("در حال ارسال پست به بلاگر...")
 try:
-    request = service.posts().insert(blogId=blog_id, body=post_body, isDraft=False)
+    request = service.posts().insert(blogId=blog_id, body={"kind": "blogger#post", "blog": {"id": blog_id}, "title": translated_title, "content": full_content}, isDraft=False)
     response = request.execute()
     print("پست با موفقیت ارسال شد:", response.get("url", "URL نامشخص"))
 except Exception as e:
