@@ -39,7 +39,7 @@ def translate_with_gemini(text, target_lang="fa"):
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.5}
+        "generationConfig": {" Graphics": 0.5}
     }
     max_retries = 2
     retry_delay = 5
@@ -67,43 +67,53 @@ def remove_newsbtc_links(text):
 # تابع آپلود عکس
 def upload_image_to_blogger(image_url):
     try:
-        response = requests.get(image_url, stream=True)
+        # دانلود عکس
+        response = requests.get(image_url, stream=True, timeout=10)
         response.raise_for_status()
         image_content = response.content
         image_name = image_url.split('/')[-1]
         
-        # آپلود مستقیم توی پست موقت و گرفتن URL
+        # ساخت پست موقت برای آپلود
         temp_post = {
             "kind": "blogger#post",
             "blog": {"id": blog_id},
-            "title": "Temp Image",
+            "title": "Temp Image Upload",
             "content": f'<img src="{image_url}" alt="{image_name}" style="max-width:100%; height:auto;">'
         }
         request = service.posts().insert(blogId=blog_id, body=temp_post, isDraft=True)
         temp_response = request.execute()
         
+        # گرفتن URL آپلودشده
         soup = BeautifulSoup(temp_response['content'], "html.parser")
         uploaded_url = soup.find("img")["src"]
+        
+        # حذف پست موقت
         service.posts().delete(blogId=blog_id, postId=temp_response['id']).execute()
         
-        print(f"آپلود {image_url} به {uploaded_url}")
+        print(f"آپلود موفق: {image_url} -> {uploaded_url}")
         return uploaded_url
+    except requests.RequestException as e:
+        print(f"خطا در دانلود {image_url}: {e}")
+        return image_url
     except Exception as e:
-        print(f"خطا در آپلود {image_url}: {e}")
+        print(f"خطا در آپلود به بلاگر {image_url}: {e}")
         return image_url
 
 # تابع جایگزینی URLها
 def replace_twimg_urls(content):
     soup = BeautifulSoup(content, "html.parser")
     images = soup.find_all("img")
-    print(f"تعداد عکس‌ها: {len(images)}")
+    print(f"تعداد عکس‌ها در محتوا: {len(images)}")
     for img in images:
         src = img.get("src", "")
-        print(f"عکس: {src}")
+        print(f"بررسی عکس: {src}")
         if "twimg.com" in src:
             new_url = upload_image_to_blogger(src)
-            img["src"] = new_url
-            print(f"جایگزینی {src} با {new_url}")
+            if new_url != src:
+                img["src"] = new_url
+                print(f"جایگزینی موفق: {src} -> {new_url}")
+            else:
+                print(f"جایگزینی ناموفق: {src} بدون تغییر باقی ماند")
     return str(soup)
 
 # تابع کرال کپشن‌ها
@@ -235,7 +245,7 @@ if post_link:
 
 full_content = "".join(full_content_parts)
 print(f"محتوای نهایی (طول): {len(full_content)} کاراکتر")
-print(f"محتوای نهایی (پیش‌نمایش): {full_content[:500]}...")  # 500 کاراکتر اول
+print(f"محتوای نهایی (پیش‌نمایش): {full_content[:500]}...")
 
 # ارسال به بلاگر
 print("ارسال به بلاگر...")
