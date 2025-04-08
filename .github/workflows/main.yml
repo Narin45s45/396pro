@@ -27,12 +27,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
-          # نصب ChromeDriver نسخه 134.0.6998.35
-          wget -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/134.0.6998.35/linux64/chromedriver-linux64.zip"
+          # نصب ChromeDriver نسخه 135.0.7049.42
+          wget -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/135.0.7049.42/linux64/chromedriver-linux64.zip"
           unzip /tmp/chromedriver.zip -d /tmp/
           sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
           sudo chmod +x /usr/local/bin/chromedriver
-          # چک کردن نسخه‌ها برای دیباگ
+          # چک کردن نسخه‌ها
           google-chrome --version
           chromedriver --version
 
@@ -43,7 +43,7 @@ jobs:
         run: |
           echo "شروع اجرای اسکریپت..." > output.log
           python au-p.py >> output.log 2>&1 || echo "اسکریپت با خطا متوقف شد" >> output.log
-          cat output.log  # نمایش لاگ توی کنسول
+          cat output.log
 
       - name: Upload output log
         if: always()
@@ -52,3 +52,4 @@ jobs:
           name: script-output
           path: output.log
           if-no-files-found: warn
+          
