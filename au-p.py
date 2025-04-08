@@ -51,20 +51,26 @@ def scrape_latest_article():
         print(article_html[:1000])
         sys.stdout.flush()
         
-        # استخراج لینک از <script>
+        # دیباگ تگ‌های <script>
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         script_tags = soup.find_all('script')
+        print("تعداد تگ‌های <script> پیدا شده:", len(script_tags))
+        sys.stdout.flush()
         article_data = None
         for script in script_tags:
-            if script.string and 'Object.create(null' in script.string:
-                title_match = re.search(r'title:\s*\{\s*writable:\s*true,\s*enumerable:\s*true,\s*value:\s*"([^"]+)"', script.string)
-                id_match = re.search(r'id:\s*\{\s*writable:\s*true,\s*enumerable:\s*true,\s*value:\s*(\d+)', script.string)
-                if title_match and id_match:
-                    article_data = {
-                        'title': title_match.group(1),
-                        'id': id_match.group(1)
-                    }
-                    break
+            if script.string:
+                print("محتوای <script> برای دیباگ (اولین 500 کاراکتر):")
+                print(script.string[:500])
+                sys.stdout.flush()
+                if 'Object.create(null' in script.string:
+                    title_match = re.search(r'title:\s*\{\s*writable:\s*true,\s*enumerable:\s*true,\s*value:\s*"([^"]+)"', script.string)
+                    id_match = re.search(r'id:\s*\{\s*writable:\s*true,\s*enumerable:\s*true,\s*value:\s*(\d+)', script.string)
+                    if title_match and id_match:
+                        article_data = {
+                            'title': title_match.group(1),
+                            'id': id_match.group(1)
+                        }
+                        break
         
         if article_data:
             article_url = f"https://bingx.com/en/news/{article_data['id']}/"
@@ -74,7 +80,7 @@ def scrape_latest_article():
             print("داده‌های مقاله پیدا نشد، بازگشت به URL پیش‌فرض.")
         sys.stdout.flush()
         
-        with open("debug_news_page.html", "w", encoding="utf-8") as f:
+        with open("debug_news_page.html", "w", encodingeys="utf-8") as f:
             f.write(soup.prettify())
         print("HTML کل صفحه در 'debug_news_page.html' ذخیره شد.")
         sys.stdout.flush()
