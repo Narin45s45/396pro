@@ -11,6 +11,7 @@ from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 import time
 import re
+import sys
 
 def setup_driver():
     chrome_options = Options()
@@ -21,6 +22,7 @@ def setup_driver():
     chrome_options.add_argument('--disable-blink-features=AutomationControlled')
     driver = webdriver.Chrome(options=chrome_options)
     print("درایور Selenium راه‌اندازی شد.")
+    sys.stdout.flush()
     return driver
 
 def scrape_latest_article():
@@ -28,15 +30,18 @@ def scrape_latest_article():
     driver = setup_driver()
     try:
         print(f"در حال باز کردن صفحه: {url}")
+        sys.stdout.flush()
         driver.get(url)
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         time.sleep(10)
         
         print("جستجوی مقاله...")
+        sys.stdout.flush()
         article = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, "//li[descendant::span[@class='title']]"))
         )
         print("مقاله پیدا شد.")
+        sys.stdout.flush()
         
         driver.execute_script("arguments[0].scrollIntoView(true);", article)
         time.sleep(5)
@@ -44,6 +49,7 @@ def scrape_latest_article():
         article_html = article.get_attribute('outerHTML')
         print("HTML مقاله برای دیباگ:")
         print(article_html[:1000])
+        sys.stdout.flush()
         
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         script_tags = soup.find_all('script')
@@ -65,10 +71,12 @@ def scrape_latest_article():
         else:
             article_url = url
             print("داده‌های مقاله پیدا نشد، بازگشت به URL پیش‌فرض.")
+        sys.stdout.flush()
         
         with open("debug_news_page.html", "w", encoding="utf-8") as f:
             f.write(soup.prettify())
         print("HTML کل صفحه در 'debug_news_page.html' ذخیره شد.")
+        sys.stdout.flush()
         
         try:
             img_tag = article.find_element(By.TAG_NAME, "img")
@@ -77,15 +85,18 @@ def scrape_latest_article():
         except Exception as e:
             image_url = "عکس پیدا نشد"
             print(f"خطا در پیدا کردن عکس: {str(e)}")
+        sys.stdout.flush()
         
         summary_tag = article.find_element(By.CLASS_NAME, "desc")
         summary = summary_tag.text.strip() if summary_tag else "خلاصه پیدا نشد"
         print(f"خلاصه: {summary}")
+        sys.stdout.flush()
         
         driver.quit()
         return article_url, image_url, summary
     except Exception as e:
         print(f"خطا در استخراج مقاله جدید: {str(e)}")
+        sys.stdout.flush()
         driver.quit()
         return None, None, None
 
@@ -93,20 +104,24 @@ def scrape_full_article(url):
     driver = setup_driver()
     try:
         print(f"در حال باز کردن صفحه: {url}")
+        sys.stdout.flush()
         driver.get(url)
         WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.CLASS_NAME, "content"))
         )
         print("تگ content پیدا شد، صفحه باید کامل بارگذاری شده باشد.")
+        sys.stdout.flush()
         
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         with open("debug_article.html", "w", encoding="utf-8") as f:
             f.write(soup.prettify())
         print("HTML صفحه مقاله در 'debug_article.html' ذخیره شد.")
+        sys.stdout.flush()
         
         title_tag = soup.find('h1')
         title = title_tag.get_text(strip=True) if title_tag else "بدون عنوان"
         print(f"عنوان مقاله: {title}")
+        sys.stdout.flush()
         
         content_div = soup.find('div', class_='content')
         if content_div:
@@ -125,19 +140,21 @@ def scrape_full_article(url):
             content = "محتوا پیدا نشد"
             print("محتوا پیدا نشد، بخشی از HTML برای دیباگ:")
             print(soup.prettify()[:3000])
+        sys.stdout.flush()
         
         driver.quit()
         print("درایور بسته شد.")
+        sys.stdout.flush()
         return {'title': title, 'content': content, 'url': url}
     except Exception as e:
         print(f"خطا رخ داد: {str(e)}")
+        sys.stdout.flush()
         driver.quit()
         return None
 
 def authenticate_blogger():
     SCOPES = ['https://www.googleapis.com/auth/blogger']
     try:
-        # استفاده از متغیر محیطی برای اطلاعات احراز هویت
         creds_json = os.environ.get('BLOGGER_CREDENTIALS')
         if not creds_json:
             raise Exception("متغیر محیطی BLOGGER_CREDENTIALS تنظیم نشده است.")
@@ -149,15 +166,18 @@ def authenticate_blogger():
             print("توکن منقضی شده، در حال رفرش...")
             creds.refresh(Request())
         print("احراز هویت بلاگر با موفقیت انجام شد.")
+        sys.stdout.flush()
         return build('blogger', 'v3', credentials=creds)
     except Exception as e:
         print(f"خطا در احراز هویت بلاگر: {str(e)}")
+        sys.stdout.flush()
         return None
 
 def post_to_blogger(blog_id, title, content, image_url, article_url, summary):
     service = authenticate_blogger()
     if not service:
         print("ارسال به بلاگر ناموفق بود: مشکل در احراز هویت.")
+        sys.stdout.flush()
         return
     try:
         posts = service.posts()
@@ -169,24 +189,31 @@ def post_to_blogger(blog_id, title, content, image_url, article_url, summary):
         
         body = {"kind": "blogger#post", "title": title, "content": full_content}
         print("در حال ارسال به بلاگر...")
+        sys.stdout.flush()
         response = posts.insert(blogId=blog_id, body=body, isDraft=False).execute()
         print(f"پست با عنوان '{title}' با موفقیت ارسال شد. ID پست: {response['id']}")
+        sys.stdout.flush()
     except Exception as e:
         print(f"خطا در ارسال به بلاگر: {str(e)}")
+        sys.stdout.flush()
 
 def main():
     print("شروع فرآیند...")
+    sys.stdout.flush()
     article_url, image_url, summary = scrape_latest_article()
     if article_url:
         print(f"لینک مقاله استخراج‌شده: {article_url}")
+        sys.stdout.flush()
         article = scrape_full_article(article_url)
         if article:
-            blog_id = os.environ.get('BLOG_ID', "7946046431714866700")  # از متغیر محیطی یا مقدار پیش‌فرض
+            blog_id = os.environ.get('BLOG_ID', "764765195397447456")  # Blog ID شما
             post_to_blogger(blog_id, article['title'], article['content'], image_url, article['url'], summary)
         else:
             print("استخراج محتوای کامل مقاله ناموفق بود.")
+            sys.stdout.flush()
     else:
         print("استخراج مقاله اولیه ناموفق بود.")
+        sys.stdout.flush()
 
 if __name__ == "__main__":
     main()
