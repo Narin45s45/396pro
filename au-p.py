@@ -51,30 +51,19 @@ def scrape_latest_article():
         print(article_html[:1000])
         sys.stdout.flush()
         
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-        script_tags = soup.find_all('script')
-        article_data = None
-        for script in script_tags:
-            if script.string and 'Object.create(null' in script.string:
-                title_match = re.search(r'title:\s*\{\s*writable:\s*true,\s*enumerable:\s*true,\s*value:\s*"([^"]+)"', script.string)
-                id_match = re.search(r'id:\s*\{\s*writable:\s*true,\s*enumerable:\s*true,\s*value:\s*(\d+)', script.string)
-                if title_match and id_match:
-                    article_data = {
-                        'title': title_match.group(1),
-                        'id': id_match.group(1)
-                    }
-                    break
-        
-        if article_data:
-            article_url = f"https://bingx.com/en/news/{article_data['id']}/"
+        # استخراج لینک مقاله از تگ <li>
+        soup = BeautifulSoup(article_html, 'html.parser')
+        title_span = soup.find('span', class_='title')
+        if title_span and title_span.parent:
+            article_url = f"https://bingx.com/en/news/{title_span.get_text(strip=True).replace(' ', '-').lower()}/"
             print(f"لینک مقاله استخراج‌شده: {article_url}")
         else:
             article_url = url
-            print("داده‌های مقاله پیدا نشد، بازگشت به URL پیش‌فرض.")
+            print("لینک مقاله پیدا نشد، بازگشت به URL پیش‌فرض.")
         sys.stdout.flush()
         
         with open("debug_news_page.html", "w", encoding="utf-8") as f:
-            f.write(soup.prettify())
+            f.write(BeautifulSoup(driver.page_source, 'html.parser').prettify())
         print("HTML کل صفحه در 'debug_news_page.html' ذخیره شد.")
         sys.stdout.flush()
         
@@ -180,6 +169,8 @@ def post_to_blogger(blog_id, title, content, image_url, article_url, summary):
         sys.stdout.flush()
         return
     try:
+        print(f"Blog ID استفاده‌شده: {blog_id}")
+        sys.stdout.flush()
         posts = service.posts()
         full_content = f"<p>{summary}</p><!--more-->"
         if image_url != "عکس پیدا نشد":
@@ -206,7 +197,7 @@ def main():
         sys.stdout.flush()
         article = scrape_full_article(article_url)
         if article:
-            blog_id = os.environ.get('BLOG_ID', "764765195397447456")  # Blog ID شما
+            blog_id = os.environ.get('BLOG_ID', "764765195397447456")
             post_to_blogger(blog_id, article['title'], article['content'], image_url, article['url'], summary)
         else:
             print("استخراج محتوای کامل مقاله ناموفق بود.")
