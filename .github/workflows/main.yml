@@ -27,17 +27,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
-          # نصب یه نسخه ثابت از ChromeDriver که با Chrome 134 سازگاره
-          wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/134.0.6312.122/chromedriver_linux64.zip"
+          CHROME_VERSION=$(google-chrome --version | grep -oE "[0-9]+.[0-9]+.[0-9]+")
+          wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION})/chromedriver_linux64.zip"
           unzip /tmp/chromedriver.zip -d /usr/local/bin/
           chmod +x /usr/local/bin/chromedriver
-          # چک کردن نسخه‌ها برای دیباگ
-          google-chrome --version
-          chromedriver --version
 
       - name: Run script
         env:
-          BLOGGER_CREDENTIALS: ${{ secrets.CREDENTIALS }}
+          BLOGGER_CREDENTIALS: ${{ secrets.BLOGGER_CREDENTIALS }}
           BLOG_ID: ${{ secrets.BLOG_ID }}
         run: |
           python au-p.py > output.log 2>&1
