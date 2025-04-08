@@ -1,4 +1,4 @@
-name: narimantx
+name: Scrape and Post RSS Feed
 
 on:
   schedule:
@@ -31,7 +31,7 @@ jobs:
 
       - name: Upload output log
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # به‌روزرسانی به v4
         with:
           name: script-output
           path: output.log
