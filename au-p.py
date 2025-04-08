@@ -10,6 +10,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 import time
+import re
 import sys
 
 def setup_driver():
@@ -50,18 +51,31 @@ def scrape_latest_article():
         print(article_html[:1000])
         sys.stdout.flush()
         
-        # پیدا کردن لینک مقاله از تگ <a>
-        try:
-            link_tag = article.find_element(By.TAG_NAME, "a")
-            article_url = link_tag.get_attribute("href")
+        # استخراج لینک از <script>
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+        script_tags = soup.find_all('script')
+        article_data = None
+        for script in script_tags:
+            if script.string and 'Object.create(null' in script.string:
+                title_match = re.search(r'title:\s*\{\s*writable:\s*true,\s*enumerable:\s*true,\s*value:\s*"([^"]+)"', script.string)
+                id_match = re.search(r'id:\s*\{\s*writable:\s*true,\s*enumerable:\s*true,\s*value:\s*(\d+)', script.string)
+                if title_match and id_match:
+                    article_data = {
+                        'title': title_match.group(1),
+                        'id': id_match.group(1)
+                    }
+                    break
+        
+        if article_data:
+            article_url = f"https://bingx.com/en/news/{article_data['id']}/"
             print(f"لینک مقاله استخراج‌شده: {article_url}")
-        except Exception as e:
+        else:
             article_url = url
-            print(f"لینک مقاله پیدا نشد، بازگشت به URL پیش‌فرض: {str(e)}")
+            print("داده‌های مقاله پیدا نشد، بازگشت به URL پیش‌فرض.")
         sys.stdout.flush()
         
         with open("debug_news_page.html", "w", encoding="utf-8") as f:
-            f.write(BeautifulSoup(driver.page_source, 'html.parser').prettify())
+            f.write(soup.prettify())
         print("HTML کل صفحه در 'debug_news_page.html' ذخیره شد.")
         sys.stdout.flush()
         
