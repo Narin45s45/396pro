@@ -10,7 +10,6 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 import time
-import re
 import sys
 
 def setup_driver():
@@ -51,15 +50,14 @@ def scrape_latest_article():
         print(article_html[:1000])
         sys.stdout.flush()
         
-        # استخراج لینک مقاله از تگ <li>
-        soup = BeautifulSoup(article_html, 'html.parser')
-        title_span = soup.find('span', class_='title')
-        if title_span and title_span.parent:
-            article_url = f"https://bingx.com/en/news/{title_span.get_text(strip=True).replace(' ', '-').lower()}/"
+        # پیدا کردن لینک مقاله از تگ <a>
+        try:
+            link_tag = article.find_element(By.TAG_NAME, "a")
+            article_url = link_tag.get_attribute("href")
             print(f"لینک مقاله استخراج‌شده: {article_url}")
-        else:
+        except Exception as e:
             article_url = url
-            print("لینک مقاله پیدا نشد، بازگشت به URL پیش‌فرض.")
+            print(f"لینک مقاله پیدا نشد، بازگشت به URL پیش‌فرض: {str(e)}")
         sys.stdout.flush()
         
         with open("debug_news_page.html", "w", encoding="utf-8") as f:
