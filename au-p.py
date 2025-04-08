@@ -62,14 +62,10 @@ def scrape_latest_article():
                 print("محتوای <script> برای دیباگ (اولین 500 کاراکتر):")
                 print(script.string[:500])
                 sys.stdout.flush()
-                # استخراج ID و عنوان از آرایه
-                id_match = re.search(r'"id",[^,]+,\d+,\s*(\d+),', script.string)
-                title_match = re.search(r'"title",[^,]+,\d+,\s*"([^"]+)"', script.string)
-                if id_match and title_match:
-                    article_data = {
-                        'id': id_match.group(1),
-                        'title': title_match.group(1)
-                    }
+                # استخراج ID از آرایه
+                id_match = re.search(r'"id",\d+,[^,]+,\s*(\d+),\s*"https', script.string)
+                if id_match:
+                    article_data = {'id': id_match.group(1)}
                     break
         
         if article_data:
