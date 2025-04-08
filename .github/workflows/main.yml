@@ -27,7 +27,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
-          # نصب یه نسخه ثابت از ChromeDriver که با Chrome 134 سازگاره
+          # نصب نسخه ثابت ChromeDriver
           wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/134.0.6312.122/chromedriver_linux64.zip"
           unzip /tmp/chromedriver.zip -d /usr/local/bin/
           chmod +x /usr/local/bin/chromedriver
@@ -40,7 +40,9 @@ jobs:
           BLOGGER_CREDENTIALS: ${{ secrets.CREDENTIALS }}
           BLOG_ID: ${{ secrets.BLOG_ID }}
         run: |
-          python au-p.py > output.log 2>&1
+          echo "شروع اجرای اسکریپت..." > output.log
+          python au-p.py >> output.log 2>&1 || echo "اسکریپت با خطا متوقف شد" >> output.log
+          cat output.log  # نمایش لاگ توی کنسول برای دیباگ
 
       - name: Upload output log
         if: always()
@@ -48,3 +50,4 @@ jobs:
         with:
           name: script-output
           path: output.log
+          if-no-files-found: warn
