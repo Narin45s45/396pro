@@ -63,8 +63,8 @@ def scrape_latest_article():
                 print(script.string[:500])
                 sys.stdout.flush()
                 # استخراج ID و عنوان از آرایه
-                id_match = re.search(r'\["null","id",[^,]+,"imageUrl",[^,]+,"title",[^,]+,\d+,\d+,\d+\],\s*(\d+),', script.string)
-                title_match = re.search(r'"title",[^,]+,\d+,\d+,\d+\],\s*\d+,\s*"([^"]+)"', script.string)
+                id_match = re.search(r'"id",[^,]+,\d+,\s*(\d+),', script.string)
+                title_match = re.search(r'"title",[^,]+,\d+,\s*"([^"]+)"', script.string)
                 if id_match and title_match:
                     article_data = {
                         'id': id_match.group(1),
