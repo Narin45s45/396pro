@@ -1,4 +1,4 @@
-name: Scrape and Post RSS Feed
+name: Scrape and Post to Blogger
 
 on:
   schedule:
@@ -21,17 +21,30 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install feedparser beautifulsoup4 requests
+          pip install selenium beautifulsoup4 google-auth-oauthlib google-api-python-client
+
+      - name: Install Chrome and ChromeDriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          # نصب یه نسخه ثابت از ChromeDriver که با Chrome 134 سازگاره
+          wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/134.0.6312.122/chromedriver_linux64.zip"
+          unzip /tmp/chromedriver.zip -d /usr/local/bin/
+          chmod +x /usr/local/bin/chromedriver
+          # چک کردن نسخه‌ها برای دیباگ
+          google-chrome --version
+          chromedriver --version
 
       - name: Run script
         env:
-          RSS_FEED_URL: ${{ secrets.RSS_FEED_URL }}
+          BLOGGER_CREDENTIALS: ${{ secrets.CREDENTIALS }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
         run: |
-          python scrape_and_post.py > output.log 2>&1
+          python au-p.py > output.log 2>&1
 
       - name: Upload output log
         if: always()
-        uses: actions/upload-artifact@v4  # به‌روزرسانی به v4
+        uses: actions/upload-artifact@v4
         with:
           name: script-output
           path: output.log
