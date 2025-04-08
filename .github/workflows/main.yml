@@ -1,9 +1,9 @@
-name: narimantx
+name: Scrape and Post RSS Feed
 
 on:
   schedule:
- #    cron: '0 0 * * *'  # هر روز ساعت 00:00 UTC
-#  workflow_dispatch:      # امکان اجرای دستی
+    - cron: '0 0 * * *'  # هر روز ساعت 00:00 UTC
+  workflow_dispatch:      # امکان اجرای دستی
 
 jobs:
   scrape-and-post:
