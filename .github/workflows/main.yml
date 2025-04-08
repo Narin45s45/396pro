@@ -1,4 +1,4 @@
-name: Scrape and Post RSS Feed
+name: narimantx
 
 on:
   schedule:
