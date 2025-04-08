@@ -27,7 +27,7 @@ jobs:
         env:
           RSS_FEED_URL: ${{ secrets.RSS_FEED_URL }}
         run: |
-          python scrape_and_post.py > output.log 2>&1
+          python au-p.py > output.log 2>&1
 
       - name: Upload output log
         if: always()
