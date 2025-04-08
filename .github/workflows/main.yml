@@ -1,25 +1,37 @@
-name: narimantx
+name: Scrape and Post RSS Feed
+
 on:
-#  schedule:
-#    - cron: "*/15 * * * *"
-  workflow_dispatch:
+  schedule:
+ #   - cron: '0 0 * * *'  # هر روز ساعت 00:00 UTC
+#  workflow_dispatch:      # امکان اجرای دستی
+
 jobs:
-  post-to-blogger:
+  scrape-and-post:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: '3.9'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install feedparser google-auth-oauthlib google-api-python-client requests
-          pip install beautifulsoup4
+          pip install feedparser beautifulsoup4 requests
+
       - name: Run script
         env:
-          CREDENTIALS: ${{ secrets.CREDENTIALS }}
-          GEMAPI: ${{ secrets.GEMAPI }}
+          RSS_FEED_URL: ${{ secrets.RSS_FEED_URL }}
         run: |
-          python au-p.py
+          python scrape_and_post.py > output.log 2>&1
+
+      - name: Upload output log
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: script-output
+          path: output.log
