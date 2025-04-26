@@ -24,19 +24,11 @@ jobs:
     - name: Upgrade pip
       run: python -m pip install --upgrade pip
 
-    # ۴. بررسی وجود فایل requirements.txt
-    - name: Check for requirements.txt
-      run: |
-        if [ ! -f "requirements.txt" ]; then
-          echo "Error: requirements.txt not found!"
-          exit 1
-        fi
-
-    # ۵. نصب وابستگی‌ها
+    # ۴. نصب مستقیم وابستگی‌ها
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      run: pip install feedparser requests beautifulsoup4 google-auth google-api-python-client
 
-    # ۶. تنظیم متغیرهای محیطی
+    # ۵. تنظیم متغیرهای محیطی
     - name: Set environment variables
       env:
         GEMAPI: ${{ secrets.GEMAPI }}
@@ -45,11 +37,11 @@ jobs:
         echo "GEMAPI=$GEMAPI" >> $GITHUB_ENV
         echo "CREDENTIALS=$CREDENTIALS" >> $GITHUB_ENV
 
-    # ۷. اجرای کد پایتون
+    # ۶. اجرای کد پایتون
     - name: Run Python script
       run: python au-p.py
 
-    # ۸. لاگ کردن خروجی (اختیاری)
+    # ۷. لاگ کردن خروجی (اختیاری)
     - name: Log output
       if: always()
       run: |
