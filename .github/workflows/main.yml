@@ -1,54 +1,24 @@
-name: Scrape and Post to Blogger
-
+name: Auto Post to Blogger
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "*/15 * * * *"
   workflow_dispatch:
-
 jobs:
-  scrape-and-post:
+  post-to-blogger:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
+      - uses: actions/checkout@v3
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
-
+          python-version: "3.9"
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install selenium beautifulsoup4 google-auth-oauthlib google-api-python-client
-
-      - name: Install Chrome and ChromeDriver
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
-          CHROME_VERSION=$(google-chrome --version | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+")
-          echo "نسخه Chrome: $CHROME_VERSION"
-          wget -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/$CHROME_VERSION/linux64/chromedriver-linux64.zip"
-          unzip /tmp/chromedriver.zip -d /tmp/
-          sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
-          sudo chmod +x /usr/local/bin/chromedriver
-          google-chrome --version
-          chromedriver --version
-
+          pip install feedparser google-auth-oauthlib google-api-python-client requests
       - name: Run script
         env:
-          BLOGGER_CREDENTIALS: ${{ secrets.CREDENTIALS }}
-          BLOG_ID: ${{ secrets.BLOG_ID }}
+          CREDENTIALS: ${{ secrets.CREDENTIALS }}
+          GEMAPI: ${{ secrets.GEMAPI }}
         run: |
-          echo "شروع اجرای اسکریپت..." > output.log
-          python au-p.py >> output.log 2>&1 || echo "اسکریپت با خطا متوقف شد" >> output.log
-          cat output.log
-
-      - name: Upload output log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: script-output
-          path: output.log
-          if-no-files-found: warn
+          python au-p.py
