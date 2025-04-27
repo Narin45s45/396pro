@@ -112,7 +112,7 @@ def translate_with_gemini(text, target_lang="fa"):
          return ""
 
     headers = {"Content-Type": "application/json"}
-prompt = (
+    prompt = (
     f"Please translate the following English text (which might contain HTML tags AND special placeholders like ##IMG_PLACEHOLDER_...##) into {target_lang} "
     f"with the utmost intelligence and precision. Pay close attention to context and nuance.\n"
     f"IMPORTANT TRANSLATION RULES:\n"
@@ -128,9 +128,9 @@ prompt = (
     f"English Text with HTML and Placeholders to Translate:\n{text}"
 )
 payload = {
-    "contents": [{"parts": [{"text": prompt}]}],
-    "generationConfig": {"temperature": 0.5, "topP": 0.95, "topK": 40}
-}
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.5, "topP": 0.95, "topK": 40}
+    }
     max_retries = 2
     retry_delay = 15
 
