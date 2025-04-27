@@ -336,7 +336,11 @@ def crawl_captions(post_url):
                 img_src = img.get("src") or img.get("data-src")
                 if img_src:
                     caption_html = str(caption_tag)
-                    captions_with_images.append({"image_url": img_src, "caption": caption_html})
+                    # ترجمه کپشن
+                    print(f"--- ترجمه کپشن برای تصویر: {img_src[:60]}...")
+                    sys.stdout.flush()
+                    translated_caption = translate_with_gemini(caption_html)
+                    captions_with_images.append({"image_url": img_src, "caption": translated_caption})
                     figure_captions_found += 1
         print(f"--- {figure_captions_found} کپشن در تگ <figure> یافت شد.")
         sys.stdout.flush()
@@ -353,7 +357,7 @@ def crawl_captions(post_url):
         # Print final captions found
         print("--- کپشن‌های نهایی یافت شده:")
         for i, item in enumerate(unique_captions):
-             print(f"    کپشن {i+1}: (عکس: {item['image_url'][:60]}...) متن: {BeautifulSoup(item['caption'], 'html.parser').get_text(strip=True)[:80]}...")
+            print(f"    کپشن {i+1}: (عکس: {item['image_url'][:60]}...) متن: {BeautifulSoup(item['caption'], 'html.parser').get_text(strip=True)[:80]}...")
         sys.stdout.flush()
         return unique_captions
     except requests.exceptions.Timeout:
@@ -365,9 +369,9 @@ def crawl_captions(post_url):
         sys.stdout.flush()
         return []
     except Exception as e:
-         print(f"!!! خطای غیرمنتظره در کرال کردن کپشن ها: {e}")
-         sys.stdout.flush()
-         return []
+        print(f"!!! خطای غیرمنتظره در کرال کردن کپشن‌ها: {e}")
+        sys.stdout.flush()
+        return []
 
 # --- تابع قرار دادن کپشن‌ها زیر عکس‌ها ---
 def add_captions_to_images(content, original_captions_with_images):
