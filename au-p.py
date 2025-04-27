@@ -380,15 +380,15 @@ def add_captions_to_images(content, original_captions_with_images):
         sys.stdout.flush()
         return content
     if not content:
-         print("--- محتوای ورودی برای اضافه کردن کپشن خالی است. رد شدن...")
-         sys.stdout.flush()
-         return ""
+        print("--- محتوای ورودی برای اضافه کردن کپشن خالی است. رد شدن...")
+        sys.stdout.flush()
+        return ""
+
     print(">>> شروع اضافه کردن کپشن‌ها به محتوای (احتمالا ترجمه‌شده)...")
     sys.stdout.flush()
 
-    # Important: We now operate on HTML potentially containing restored <img> tags
     soup = BeautifulSoup(content, "html.parser")
-    images = soup.find_all("img") # Find images again after potential restoration
+    images = soup.find_all("img")  # پیدا کردن دوباره عکس‌ها بعد از بازیابی احتمالی
     print(f"--- تعداد عکس‌های یافت شده در محتوا: {len(images)}")
     sys.stdout.flush()
 
@@ -405,54 +405,85 @@ def add_captions_to_images(content, original_captions_with_images):
     captions_added_count = 0
 
     for img_index, img in enumerate(images):
-        potential_match_index = img_index
-        if potential_match_index < len(original_captions_with_images) and potential_match_index not in used_caption_indices:
-            matching_caption_data = original_captions_with_images[potential_match_index]
-            matching_caption_html = matching_caption_data["caption"]
-            original_url = matching_caption_data["image_url"]
-            print(f"--- تلاش برای افزودن کپشن {potential_match_index + 1} به عکس {img_index + 1}...")
+        img_src = img.get("src", "")
+        if not img_src:
+            print(f"--- هشدار: عکس {img_index + 1} بدون src است. رد شدن...")
             sys.stdout.flush()
+            continue
 
+        # پیدا کردن کپشن مطابق با URL تصویر
+        matching_caption_data = None
+        matching_caption_index = -1
+        for idx, caption_data in enumerate(original_captions_with_images):
+            if idx in used_caption_indices:
+                continue
+            original_url = caption_data["image_url"]
+            # مقایسه URLها (ممکنه URLها کمی تغییر کرده باشن، پس فقط بخش اصلی رو مقایسه می‌کنیم)
+            original_url_base = urlparse(original_url).path
+            img_src_base = urlparse(img_src).path if not img_src.startswith("data:") else ""
+            if original_url_base and img_src_base and original_url_base in img_src_base:
+                matching_caption_data = caption_data
+                matching_caption_index = idx
+                break
+            # اگه تصویر به Base64 تبدیل شده، مستقیماً نمی‌تونیم URL رو مقایسه کنیم
+            # در این صورت، باید یه روش دیگه برای مطابقت پیدا کنیم (مثلاً از alt یا ترتیب به عنوان fallback)
+            elif img_src.startswith("data:"):
+                # برای تصاویر Base64، از alt یا ترتیب به عنوان fallback استفاده می‌کنیم
+                img_alt = img.get("alt", "")
+                caption_text = BeautifulSoup(caption_data['caption'], 'html.parser').get_text(strip=True)
+                if img_alt and caption_text and caption_text.lower() in img_alt.lower():
+                    matching_caption_data = caption_data
+                    matching_caption_index = idx
+                    break
+
+        if matching_caption_data and matching_caption_index >= 0:
+            print(f"--- افزودن کپشن {matching_caption_index + 1} به عکس {img_index + 1} (URL: {img_src[:60]}...)")
+            sys.stdout.flush()
+            matching_caption_html = matching_caption_data["caption"]
+
+            # ساخت تگ figure برای کپشن و عکس
             figure = soup.new_tag("figure")
             figure['style'] = "margin: 1em auto; text-align: center; max-width: 100%;"
 
             parent = img.parent
-            if parent.name in ['p', 'div'] and not parent.get_text(strip=True): # Only replace if parent is simple wrapper
-                 parent.replace_with(figure)
-                 figure.append(img)
+            if parent.name in ['p', 'div'] and not parent.get_text(strip=True):  # فقط اگه والد یه wrapper ساده باشه
+                parent.replace_with(figure)
+                figure.append(img)
             else:
-                 img.wrap(figure) # Otherwise, just wrap
+                img.wrap(figure)  # در غیر این صورت فقط wrap کن
 
             caption_soup = BeautifulSoup(matching_caption_html, "html.parser")
-            # Find first relevant tag within the parsed caption HTML
             caption_content = caption_soup.find(['figcaption', 'p', 'div', 'span'])
-            if not caption_content: # If only text nodes exist
-                 caption_content = soup.new_tag('figcaption') # Create a figcaption
-                 caption_content.string = caption_soup.get_text(strip=True)
-            elif caption_content.name != 'figcaption': # Ensure it's a figcaption if possible
-                 new_figcaption = soup.new_tag('figcaption')
-                 # Transfer content and style
-                 new_figcaption.contents = caption_content.contents
-                 new_figcaption['style'] = caption_content.get('style', '')
-                 caption_content = new_figcaption
+            if not caption_content:  # اگه فقط متن باشه
+                caption_content = soup.new_tag('figcaption')
+                caption_content.string = caption_soup.get_text(strip=True)
+            elif caption_content.name != 'figcaption':
+                new_figcaption = soup.new_tag('figcaption')
+                new_figcaption.contents = caption_content.contents
+                new_figcaption['style'] = caption_content.get('style', '')
+                caption_content = new_figcaption
 
             if caption_content:
                 caption_content['style'] = caption_content.get('style', '') + ' text-align: center; font-size: small; margin-top: 5px; color: #555;'
                 figure.append(caption_content)
-                used_caption_indices.add(potential_match_index)
+                used_caption_indices.add(matching_caption_index)
                 captions_added_count += 1
-                print(f"---   کپشن {potential_match_index + 1} اضافه شد.")
+                print(f"---   کپشن {matching_caption_index + 1} اضافه شد.")
                 sys.stdout.flush()
             else:
-                 print(f"---   هشدار: محتوای کپشن {potential_match_index + 1} یافت نشد.")
-                 sys.stdout.flush()
+                print(f"---   هشدار: محتوای کپشن {matching_caption_index + 1} یافت نشد.")
+                sys.stdout.flush()
+        else:
+            print(f"--- هشدار: هیچ کپشن مطابق برای عکس {img_index + 1} یافت نشد (URL: {img_src[:60]}...)")
+            sys.stdout.flush()
 
+    # اضافه کردن کپشن‌های استفاده‌نشده به انتها
     remaining_captions_html = ""
     remaining_count = 0
     for i, item in enumerate(original_captions_with_images):
-         if i not in used_caption_indices:
-              remaining_captions_html += item['caption']
-              remaining_count += 1
+        if i not in used_caption_indices:
+            remaining_captions_html += item['caption']
+            remaining_count += 1
 
     if remaining_captions_html:
         print(f"--- افزودن {remaining_count} کپشن باقی‌مانده به انتهای محتوا...")
