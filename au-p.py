@@ -18,7 +18,7 @@ RSS_FEED_URL = "https://www.newsbtc.com/feed/"
 GEMINI_API_KEY = os.environ.get("GEMAPI")
 if not GEMINI_API_KEY:
     raise ValueError("!متغیر محیطی GEMAPI پیدا نشد")
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 creds_json = os.environ.get("CREDENTIALS")
 if not creds_json:
