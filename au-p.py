@@ -127,6 +127,9 @@ def translate_with_gemini(text, target_lang="fa"):
     f"4. Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
     f"5. Preserve the original HTML structure (tags and attributes) as much as possible, only translating the text content within the tags and relevant attributes like 'alt' or 'title'.\n"
     f"6. Rewrite the translated text in colloquial and common Persian (فارسی عامیانه و رایج).\n"
+    f"7. For titles, translate them as a noun phrase (without a verb) and use a hyphen (-) to separate the two parts of the title. For example:\n"
+     f"   English: 'Ethereum Price Retreats — Temporary Breather or Trend Shift?'\n"
+      f"   Persian: 'عقب نشینی قیمت اتریوم- نفس‌گیری موقت یا تغییر روند؟'\n"
     f"OUTPUT REQUIREMENT: Only return the final, high-quality translated text with its original HTML structure AND the preserved placeholders. Do not add any explanations, comments, apologies, or options. Provide only the single best translation.\n\n"
     f"English Text with HTML and Placeholders to Translate:\n{text}"
     )
