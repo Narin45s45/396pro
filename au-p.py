@@ -134,7 +134,7 @@ def translate_with_gemini(text, target_lang="fa"):
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.5, "topP": 0.95, "topK": 40}
+        "generationConfig": {"temperature": 0, "topP": 0.95, "topK": 40}
     }
     max_retries = 2
     retry_delay = 15
