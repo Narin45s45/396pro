@@ -117,7 +117,7 @@ def translate_with_gemini(text, target_lang="fa"):
     f"in a way that feels natural and commonly used by native speakers. Focus on the overall meaning and intent rather than a literal, word-for-word translation.\n"
     f"IMPORTANT TRANSLATION RULES:\n"
     f"1. Convey the meaning of ALL text content, including text inside HTML tags like <p>, <li>, <blockquote>, <a>, etc. Do not skip any content. For text within quotation marks (\"\"), ensure the meaning is conveyed naturally.\n"
-    f"2. !!! IMPORTANT: Preserve the image placeholders (e.g., ##IMG_PLACEHOLDER_uuid##) EXACTLY as they appear in the original text. DO NOT translate them, modify them, or add/remove spaces around them. They must remain identical.\n"
+   f"2. !!! IMPORTANT: Preserve the image placeholders (e.g., ##IMG_PLACEHOLDER_uuid##) EXACTLY as they appear in the original text. DO NOT translate them, modify them, add/remove spaces around them, or add them to the title if they are not already present. They must remain identical and only appear in the content, not the title.\n"
     f"3. For technical terms or English words commonly used in the field (like Bitcoin, Ethereum, XRP, NFT, Blockchain, Stochastic Oscillator, MACD, RSI, AI, API), "
 f"transliterate them into Persian script (Finglish) instead of translating them into a potentially obscure Persian word. "
 f"Example: 'Stochastic Oscillator' should become 'اوسیلاتور استوکستیک'. Apply consistently. "
