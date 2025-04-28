@@ -762,10 +762,9 @@ html_content = f"""
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{translated_title}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {{
-            font-family: 'Vazirmatn', sans-serif;
+            font-family: 'Tahoma', 'Arial', sans-serif; /* فونت پیش‌فرض که بلاگر پشتیبانی می‌کنه */
             direction: rtl;
             text-align: right;
             margin: 20px;
