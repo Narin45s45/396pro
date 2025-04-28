@@ -113,22 +113,24 @@ def translate_with_gemini(text, target_lang="fa"):
 
     headers = {"Content-Type": "application/json"}
     prompt = (
-    f"Please translate the following English text (which might contain HTML tags AND special placeholders like ##IMG_PLACEHOLDER_...##) into {target_lang} "
-    f"with the utmost intelligence and precision. Pay close attention to context and nuance.\n"
-    f"IMPORTANT TRANSLATION RULES:\n"
-    f"1. Translate ALL text content, including text inside HTML tags like <p>, <li>, <blockquote>, <a>, etc. Do not skip any content.\n"
-    f"2. !!! CRITICAL: Preserve the image placeholders (e.g., ##IMG_PLACEHOLDER_uuid##) EXACTLY as they appear in the original text. "
-    f"DO NOT translate them, modify them, add/remove spaces around them, or delete them under ANY circumstances. "
-    f"Treat them as sacred, untouchable markers that MUST remain identical in the output. "
-    f"For example, if the input has '##IMG_PLACEHOLDER_123##', the output MUST also have '##IMG_PLACEHOLDER_123##' unchanged.\n"
-    f"3. For technical terms or English words commonly used in the field (like Bitcoin, Ethereum, NFT, Blockchain, Stochastic Oscillator, MACD, RSI, AI, API), "
-    f"transliterate them into Persian script (Finglish) instead of translating them into a potentially obscure Persian word. "
-    f"Example: 'Stochastic Oscillator' should become 'اوسیلاتور استوکستیک'. Apply consistently.\n"
-    f"4. Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
-    f"5. Preserve the original HTML structure (tags and attributes) as much as possible, only translating the text content within the tags and relevant attributes like 'alt' or 'title'.\n"
-    f"6. Rewrite the translated text in colloquial and common Persian (فارسی عامیانه و رایج).\n"
-    f"OUTPUT REQUIREMENT: Only return the final, high-quality translated text with its original HTML structure AND the preserved placeholders. Do not add any explanations, comments, apologies, or options. Provide only the single best translation.\n\n"
-    f"English Text with HTML and Placeholders to Translate:\n{text}"
+        f"Please translate the following English text (which might contain HTML tags AND special placeholders like ##IMG_PLACEHOLDER_...##) into {target_lang} "
+        f"with the utmost intelligence and precision. Pay close attention to context and nuance.\n"
+        f"IMPORTANT TRANSLATION RULES:\n"
+        f"1. Translate ALL text content, including text inside HTML tags like <p>, <li>, <blockquote>, <a>, etc. Do not skip any content.\n"
+        f"2. !!! IMPORTANT: Preserve the image placeholders (e.g., ##IMG_PLACEHOLDER_uuid##) EXACTLY as they appear in the original text. DO NOT translate them, modify them, or add/remove spaces around them. They must remain identical.\n"
+        f"3. For technical terms or English words commonly used in the field (like Bitcoin, Ethereum, NFT, Blockchain, Stochastic Oscillator, MACD, RSI, AI, API), "
+        f"transliterate them into Persian script (Finglish) instead of translating them into a potentially obscure Persian word. "
+        f"Example: 'Stochastic Oscillator' should become 'اوسیلاتور استوکستیک'. Apply consistently.\n"
+        f"4. Ensure that any text within quotation marks (\"\") is also accurately translated.\n"
+        f"5. Preserve the original HTML structure (tags and attributes) as much as possible, only translating the text content within the tags and relevant attributes like 'alt' or 'title'.\n"
+        f"6. Rewrite the translated text in colloquial and common Persian (فارسی عامیانه و رایج). If the translation initially sounds formal (e.g., 'پس می‌کشد'), convert it to a more casual tone (e.g., 'عقب‌نشینی می‌کنه').\n"
+        f"7. For titles, translate them as a noun phrase (without a verb) and use a hyphen (-) to separate the two parts of the title. For example:\n"
+        f"   English: 'Ethereum Price Retreats — Temporary Breather or Trend Shift?'\n"
+        f"   Persian: 'عقب نشینی قیمت اتریوم- نفس‌گیری موقت یا تغییر روند؟'\n"
+       
+        f"8. Ensure the number of words in the translated text does not exceed the original text by more than 20%. For example, if the English text has 10 words, the Persian translation should have no more than 12 words.\n"
+        f"OUTPUT REQUIREMENT: Only return the final, high-quality translated text with its original HTML structure AND the preserved placeholders. Do not add any explanations, comments, apologies, or options. Provide only the single best translation.\n\n"
+        f"English Text with HTML and Placeholders to Translate:\n{text}"
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
