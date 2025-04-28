@@ -752,17 +752,67 @@ sys.stdout.flush()
 
 # 6. ساختار نهایی پست
 print("\n>>> مرحله ۶: آماده‌سازی ساختار نهایی پست HTML...")
-# ... (کد مانند قبل) ...
 sys.stdout.flush()
-full_content_parts = []
-if thumbnail_html:
-    full_content_parts.append(thumbnail_html)
-if final_content_for_post:
-    full_content_parts.append(final_content_for_post)
-if post_link and post_link.startswith(('http://', 'https://')):
-    full_content_parts.append(f'<div style="text-align:right; margin-top:15px; font-size: small; color: #777;"><a href="{post_link}" target="_blank" rel="noopener noreferrer nofollow">منبع: NewsBTC</a></div>')
 
-full_content = "".join(full_content_parts)
+# ساخت HTML کامل با استایل
+html_content = f"""
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{translated_title}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {{
+            font-family: 'Vazirmatn', sans-serif;
+            direction: rtl;
+            text-align: right;
+            margin: 20px;
+        }}
+        h1 {{
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }}
+        p {{
+            font-size: 16px;
+            line-height: 1.6;
+            text-align: justify; /* جاستیفای کردن متن */
+            margin-bottom: 15px;
+        }}
+        img {{
+            max-width: 100%;
+            height: auto;
+            margin: 10px 0;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            border-radius: 3px;
+        }}
+        div.content-wrapper {{
+            line-height: 1.7;
+        }}
+        div.source-link {{
+            text-align: right;
+            margin-top: 15px;
+            font-size: small;
+            color: #777;
+        }}
+    </style>
+</head>
+<body>
+    <h1>{translated_title}</h1>
+    <div class="content-wrapper">
+        {thumbnail_html if thumbnail_html else ''}
+        {final_content_for_post}
+        {'<div class="source-link"><a href="' + post_link + '" target="_blank" rel="noopener noreferrer nofollow">منبع: NewsBTC</a></div>' if post_link and post_link.startswith(('http://', 'https://')) else ''}
+    </div>
+</body>
+</html>
+"""
+
+full_content = html_content  # HTML کامل رو به متغیر full_content اختصاص می‌دیم
 print("<<< مرحله ۶ کامل شد.")
 sys.stdout.flush()
 
