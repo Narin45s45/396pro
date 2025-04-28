@@ -117,7 +117,7 @@ def translate_with_gemini(text, target_lang="fa"):
     f"with the utmost intelligence and precision. Pay close attention to context and nuance.\n"
     f"IMPORTANT TRANSLATION RULES:\n"
     f"1. Translate ALL text content, including text inside HTML tags like <p>, <li>, <blockquote>, <a>, etc. Do not skip any content.\n"
-    f"2. !!! CRITICAL: Preserve the image placeholders (e.g., ##IMG_PLACEHOLDER_uuid##) EXACTLY as they appear in the original text. "
+    f"2. !!! CRITICAL: Preserve the image placeholders (e.g. ) EXACTLY as they appear in the original text. "
     f"DO NOT translate them, modify them, add/remove spaces around them, or delete them under ANY circumstances. "
     f"Treat them as sacred, untouchable markers that MUST remain identical in the output. "
     f"For example, if the input has '##IMG_PLACEHOLDER_123##', the output MUST also have '##IMG_PLACEHOLDER_123##' unchanged.\n"
