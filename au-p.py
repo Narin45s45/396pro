@@ -569,7 +569,6 @@ sys.stdout.flush()
 
 # 3. ترجمه عنوان
 print("\n>>> مرحله ۳: ترجمه عنوان پست...")
-# ... (کد مانند قبل) ...
 sys.stdout.flush()
 title = latest_post.title
 translated_title = title
@@ -579,8 +578,10 @@ try:
     print(f"--- عنوان ترجمه‌شده: {translated_title}")
     sys.stdout.flush()
 except Exception as e:
-    print(f"!!! خطا در ترجمه عنوان: {e}. از عنوان اصلی استفاده می‌شود.")
+    print(f"!!! خطای جدی در ترجمه عنوان با Gemini: {type(e).__name__} - {e}")
+    print("!!! اسکریپت به دلیل خطا در اتصال به Gemini یا ترجمه عنوان متوقف می‌شود.")
     sys.stdout.flush()
+    exit(1)  # متوقف کردن اسکریپت
 print("<<< مرحله ۳ کامل شد.")
 sys.stdout.flush()
 
