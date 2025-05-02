@@ -101,51 +101,161 @@ def restore_images_from_placeholders(html_content, placeholder_map):
     sys.stdout.flush()
     return restored_content
     
-def call_gemini(prompt):
+# --- تابع ترجمه با Gemini (بدون تغییر زیاد، فقط لاگ) ---
+def translate_with_gemini(text, target_lang="fa"):
+    print(f">>> شروع ترجمه متن با Gemini (طول متن: {len(text)} کاراکتر)...")
+    sys.stdout.flush()
+    if not text or text.isspace():
+         print("--- متن ورودی برای ترجمه خالی است. رد شدن از ترجمه.")
+         sys.stdout.flush()
+         return ""
+
     headers = {"Content-Type": "application/json"}
+    prompt = (
+    f"Please convey the meaning of the following English text (which might contain HTML tags AND special placeholders like ##IMG_PLACEHOLDER_...##) into {target_lang} "
+    f"in a way that feels natural and commonly used by native speakers. Focus on the overall meaning and intent rather than a literal, word-for-word translation.\n"
+    f"IMPORTANT TRANSLATION RULES:\n"
+    f"1. Convey the meaning of ALL text content, including text inside HTML tags like <p>, <li>, <blockquote>, <a>, etc. Do not skip any content. For text within quotation marks (\"\"), ensure the meaning is conveyed naturally.\n"
+   f"2. !!! IMPORTANT: Preserve the image placeholders (e.g., ##IMG_PLACEHOLDER_uuid##) EXACTLY as they appear in the original text. DO NOT translate them, modify them, add/remove spaces around them, or add them to the title if they are not already present. They must remain identical and only appear in the content, not the title.\n"
+    f"3. For technical terms or English words commonly used in the field (like Bitcoin, Ethereum, XRP, NFT, Blockchain, Stochastic Oscillator, MACD, RSI, AI, API), "
+f"transliterate them into Persian script (Finglish) instead of translating them into a potentially obscure Persian word. "
+f"Example: 'Stochastic Oscillator' should become 'اوسیلاتور استوکستیک'. Apply consistently. "
+f"For cryptocurrency names, always add their Persian equivalent in parentheses to clarify for readers. Use the following mappings:\n"
+f"   - 'Bitcoin' → 'Bitcoin(بیت‌کوین)'\n"
+f"   - 'Ethereum' → 'Ethereum(اتریوم)'\n"
+f"   - 'XRP' → 'XRP(ریپل)'\n"
+f"   - 'Pepe' → 'Pepe(پپه)'\n"
+f"   - 'Shiba Inu' → 'Shiba Inu(شیبا اینو)'\n"
+f"   - 'Dogecoin' → 'Dogecoin(دوج‌کوین)'\n"
+f"If a cryptocurrency name is not listed, transliterate it into Persian script and use that as the Persian equivalent (e.g., for 'Cardano', use 'Cardano(کاردانو)').\n"
+    f"4. Rewrite the text in colloquial and common Persian (فارسی عامیانه و رایج). Always use a casual tone, even if the initial translation sounds formal. "
+    f"Use specific Persian words for certain English terms consistently across all translations:\n"
+    f"   - For 'rally' when used as a verb (e.g., 'price rallies'), use 'برود' instead of 'رالی کند'.\n"
+    f"   - For 'trend', use 'روند' instead of 'ترند' (e.g., 'روند صعودی' instead of 'ترند صعودی').\n"
+    f"   - For 'price rally', use 'افزایش قیمت' instead of 'رالی قیمت' (e.g., 'افزایش قیمت XRP' instead of 'رالی قیمت XRP').\n"
+    f"   - For other market terms, use casual equivalents: use 'عقب‌نشینی می‌کنه' instead of 'پس می‌کشد', and 'محدوده شکست' instead of 'محدوده بریک‌اوت' or 'منطقه گسست'.\n"
+    f"For titles, follow this structure: first mention the context or event (e.g., a pullback, dip, or other market movement), then describe the price movement (e.g., surge, rise, or target). "
+    f"Ensure the sentence ends with a verb like 'می رود' to complete the structure. "
+    f"If the title contains phrases like 'Shoots For' or 'Aims For' indicating a target or goal (not an achieved result), use phrases like 'به سمت' or 'هدف' instead of 'رسید'. "
+    f"For example:\n"
+    f"   English: 'XRP Price Shoots For 20% Surge To $2.51 Amid Pullback To Breakout Zone'\n"
+    f"   Persian: 'قیمت XRP(ریپل) بعد از عقب نشینی به محدوده شکست با رشد ۲۰٪ به سمت ۲.۵۱ دلار می رود'\n"
+    f"   Another example:\n"
+    f"   English: 'Bitcoin Price Aims For 10% Rise To $70,000 After Dip To Support Level'\n"
+    f"   Persian: 'قیمت بیت‌کوین(بیت‌کوین) بعد از افت به سطح حمایت با رشد ۱۰٪ به سمت ۷۰,۰۰۰ دلار می‌رود'\n"
+    f"5. Ensure the number of words in the translated text does not exceed the original text by more than 35%. For example, if the English text has 10 words, the Persian translation should have no more than 14 words (10 + 3.5 rounded up).\n"
+    f"OUTPUT REQUIREMENT: Only return the final, high-quality translated text with its original HTML structure AND the preserved placeholders. Do not add any explanations, comments, apologies, or options. Provide only the single best translation.\n\n"
+    f"English Text with HTML and Placeholders to Translate:\n{text}"
+    )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0, "topP": 0.95, "topK": 40}
     }
-    response = requests.post(
-        f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
-        headers=headers,
-        json=payload,
-        timeout=GEMINI_TIMEOUT
-    )
-    response.raise_for_status()
-    result = response.json()
-    if not result or "candidates" not in result or not result["candidates"]:
-        raise ValueError("پاسخ غیرمنتظره از API Gemini")
-    candidate = result["candidates"][0]
-    if "content" not in candidate or "parts" not in candidate["content"] or not candidate["content"]["parts"]:
-        raise ValueError("ترجمه ناقص از Gemini دریافت شد")
-    return candidate["content"]["parts"][0]["text"]
+    max_retries = 2
+    retry_delay = 15
 
-# --- تابع بازنویسی با Gemini ---
-def translate_with_gemini(text, target_lang="fa"):  # اسم تابع رو تغییر ندادم چون توی جاهای دیگه کد استفاده شده
-    print(f">>> شروع بازنویسی متن با Gemini (طول متن: {len(text)} کاراکتر)...")
+    for attempt in range(max_retries + 1):
+        print(f"--- تلاش {attempt + 1}/{max_retries + 1} برای تماس با API Gemini...")
+        sys.stdout.flush()
+        try:
+            response = requests.post(
+                f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
+                headers=headers,
+                json=payload,
+                timeout=GEMINI_TIMEOUT # Timeout بیشتر
+            )
+            print(f"--- پاسخ اولیه از Gemini دریافت شد (کد وضعیت: {response.status_code})")
+            sys.stdout.flush()
+
+            if response.status_code == 429 and attempt < max_retries:
+                print(f"!!! خطای Rate Limit (429) از Gemini. منتظر ماندن برای {retry_delay} ثانیه...")
+                sys.stdout.flush()
+                time.sleep(retry_delay)
+                retry_delay *= 1.5
+                continue
+
+            response.raise_for_status()
+
+            print("--- در حال پردازش پاسخ JSON از Gemini...")
+            sys.stdout.flush()
+            result = response.json()
+
+            # ... (بقیه بررسی‌های پاسخ Gemini مانند قبل) ...
+            if not result or "candidates" not in result or not result["candidates"]:
+                 feedback = result.get("promptFeedback", {})
+                 block_reason = feedback.get("blockReason")
+                 if block_reason:
+                      print(f"!!! Gemini درخواست را مسدود کرد: {block_reason}")
+                      sys.stdout.flush()
+                      raise ValueError(f"ترجمه توسط Gemini مسدود شد: {block_reason}")
+                 else:
+                      print(f"!!! پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر candidates): {result}")
+                      sys.stdout.flush()
+                      raise ValueError("پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر candidates)")
+
+            candidate = result["candidates"][0]
+            if "content" not in candidate or "parts" not in candidate["content"] or not candidate["content"]["parts"]:
+                  finish_reason = candidate.get("finishReason", "نامشخص")
+                  if finish_reason != "STOP":
+                       print(f"!!! Gemini ترجمه را کامل نکرد: دلیل پایان = {finish_reason}")
+                       sys.stdout.flush()
+                       partial_text = candidate.get("content",{}).get("parts",[{}])[0].get("text")
+                       if partial_text:
+                            print("--- هشدار: ممکن است ترجمه ناقص باشد.")
+                            sys.stdout.flush()
+                            return partial_text.strip()
+                       raise ValueError(f"ترجمه ناقص از Gemini دریافت شد (دلیل: {finish_reason})")
+                  else:
+                     print(f"!!! پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر content/parts): {candidate}")
+                     sys.stdout.flush()
+                     raise ValueError("پاسخ غیرمنتظره از API Gemini (ساختار نامعتبر content/parts)")
+
+            if "text" not in candidate["content"]["parts"][0]:
+                  print(f"!!! پاسخ غیرمنتظره از API Gemini (بدون text در part): {candidate}")
+                  sys.stdout.flush()
+                  raise ValueError("پاسخ غیرمنتظره از API Gemini (بدون text در part)")
+
+            translated_text = candidate["content"]["parts"][0]["text"]
+            print("<<< ترجمه متن با Gemini با موفقیت انجام شد.")
+            sys.stdout.flush()
+            translated_text = re.sub(r'^```html\s*', '', translated_text, flags=re.IGNORECASE)
+            translated_text = re.sub(r'\s*```$', '', translated_text)
+            return translated_text.strip()
+
+        except requests.exceptions.Timeout:
+            print(f"!!! خطا: درخواست به API Gemini زمان‌بر شد (Timeout پس از {GEMINI_TIMEOUT} ثانیه).")
+            sys.stdout.flush()
+            if attempt >= max_retries:
+                print("!!! تلاش‌های مکرر برای Gemini ناموفق بود (Timeout).")
+                sys.stdout.flush()
+                raise ValueError(f"API Gemini پس از چند بار تلاش پاسخ نداد (Timeout در تلاش {attempt+1}).")
+            print(f"--- منتظر ماندن برای {retry_delay} ثانیه قبل از تلاش مجدد...")
+            sys.stdout.flush()
+            time.sleep(retry_delay)
+            retry_delay *= 1.5
+        except requests.exceptions.RequestException as e:
+            print(f"!!! خطا در درخواست به API Gemini: {e}")
+            sys.stdout.flush()
+            if attempt >= max_retries:
+                print("!!! تلاش‌های مکرر برای Gemini ناموفق بود (خطای شبکه).")
+                sys.stdout.flush()
+                raise ValueError(f"خطا در درخواست API Gemini پس از چند بار تلاش: {e}")
+            print(f"--- منتظر ماندن برای {retry_delay} ثانیه قبل از تلاش مجدد...")
+            sys.stdout.flush()
+            time.sleep(retry_delay)
+            retry_delay *= 1.5
+        except (ValueError, KeyError, json.JSONDecodeError) as e:
+            print(f"!!! خطا در پردازش پاسخ Gemini یا خطای داده: {e}")
+            sys.stdout.flush()
+            raise
+        except Exception as e:
+             print(f"!!! خطای پیش‌بینی نشده در تابع ترجمه: {e}")
+             sys.stdout.flush()
+             raise
+
+    print("!!! ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
     sys.stdout.flush()
-    if not text or text.isspace():
-        print("--- متن ورودی برای بازنویسی خالی است. رد شدن از بازنویسی.")
-        sys.stdout.flush()
-        return ""
-
-    prompt = f"""
-    متن زیر را به فارسی روان و ساده بازنویسی کن تا برای خوانندگان عمومی قابل فهم باشد.
-    از کلمات پیچیده استفاده نکن و مفهوم اصلی را حفظ کن:
-    {text}
-    """
-    try:
-        rewritten_text = call_gemini(prompt)
-        print("<<< بازنویسی متن با Gemini با موفقیت انجام شد.")
-        sys.stdout.flush()
-        return rewritten_text.strip()
-    except Exception as e:
-        print(f"!!! خطا در بازنویسی با Gemini: {e}")
-        sys.stdout.flush()
-        raise
-
+    raise ValueError("ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
 # --- بقیه توابع (remove_newsbtc_links, replace_twimg_with_base64, crawl_captions, add_captions_to_images) ---
 # این توابع تقریباً بدون تغییر باقی می‌مانند، فقط لاگ‌ها حفظ می‌شوند.
 # (برای اختصار از تکرار کد کامل آنها خودداری می شود، فرض بر این است که از نسخه قبلی استفاده می شود)
