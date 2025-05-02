@@ -112,8 +112,11 @@ def translate_with_gemini(text, target_lang="fa"):
 
     headers = {"Content-Type": "application/json"}
     prompt = (
-        f"متن زیر را به فارسی روان و ساده بازنویسی کن تا برای خوانندگان عمومی قابل فهم باشد.\n\n"
-        f"متن انگلیسی با HTML و Placeholderها برای ترجمه:\n{text}"
+    f"متن زیر را به فارسی روان و ساده بازنویسی کن تا برای خوانندگان عمومی قابل فهم باشد.\n"
+    f"قوانین مهم:\n"
+    f"1. ساختار HTML (مثل تگ‌های <p>، <div>، <b>) رو دقیقاً حفظ کن و تغییر نده.\n"
+    f"2. placeholderهای تصویر (مثل ##IMG_PLACEHOLDER_...##) رو دقیقاً همون‌طور که هستن نگه دار و تغییر نده.\n\n"
+    f"متن انگلیسی با HTML و Placeholderها برای ترجمه:\n{text}"
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
