@@ -224,6 +224,7 @@ def translate_with_gemini(text, target_lang="fa"):
     print("!!! ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
     sys.stdout.flush()
     raise ValueError("ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
+
 # --- بقیه توابع (remove_newsbtc_links, replace_twimg_with_base64, crawl_captions, add_captions_to_images) ---
 # این توابع تقریباً بدون تغییر باقی می‌مانند، فقط لاگ‌ها حفظ می‌شوند.
 # (برای اختصار از تکرار کد کامل آنها خودداری می شود، فرض بر این است که از نسخه قبلی استفاده می شود)
