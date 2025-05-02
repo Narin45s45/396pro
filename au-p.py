@@ -100,7 +100,27 @@ def restore_images_from_placeholders(html_content, placeholder_map):
     print(f"--- {count} عکس از Placeholder بازگردانده شد.")
     sys.stdout.flush()
     return restored_content
-
+    
+def call_gemini(prompt):
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0, "topP": 0.95, "topK": 40}
+    }
+    response = requests.post(
+        f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
+        headers=headers,
+        json=payload,
+        timeout=GEMINI_TIMEOUT
+    )
+    response.raise_for_status()
+    result = response.json()
+    if not result or "candidates" not in result or not result["candidates"]:
+        raise ValueError("پاسخ غیرمنتظره از API Gemini")
+    candidate = result["candidates"][0]
+    if "content" not in candidate or "parts" not in candidate["content"] or not candidate["content"]["parts"]:
+        raise ValueError("ترجمه ناقص از Gemini دریافت شد")
+    return candidate["content"]["parts"][0]["text"]
 
 # --- تابع بازنویسی با Gemini ---
 def translate_with_gemini(text, target_lang="fa"):  # اسم تابع رو تغییر ندادم چون توی جاهای دیگه کد استفاده شده
