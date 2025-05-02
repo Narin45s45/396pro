@@ -102,14 +102,29 @@ def restore_images_from_placeholders(html_content, placeholder_map):
     return restored_content
 
 
-# تابع برای بازنویسی محتوا با جمینی
-def rewrite_with_gemini(content):
+# --- تابع بازنویسی با Gemini ---
+def translate_with_gemini(text, target_lang="fa"):  # اسم تابع رو تغییر ندادم چون توی جاهای دیگه کد استفاده شده
+    print(f">>> شروع بازنویسی متن با Gemini (طول متن: {len(text)} کاراکتر)...")
+    sys.stdout.flush()
+    if not text or text.isspace():
+        print("--- متن ورودی برای بازنویسی خالی است. رد شدن از بازنویسی.")
+        sys.stdout.flush()
+        return ""
+
     prompt = f"""
     متن زیر را به فارسی روان و ساده بازنویسی کن تا برای خوانندگان عمومی قابل فهم باشد.
     از کلمات پیچیده استفاده نکن و مفهوم اصلی را حفظ کن:
-    {content}
+    {text}
     """
-    return call_gemini(prompt)
+    try:
+        rewritten_text = call_gemini(prompt)
+        print("<<< بازنویسی متن با Gemini با موفقیت انجام شد.")
+        sys.stdout.flush()
+        return rewritten_text.strip()
+    except Exception as e:
+        print(f"!!! خطا در بازنویسی با Gemini: {e}")
+        sys.stdout.flush()
+        raise
 
 # --- بقیه توابع (remove_newsbtc_links, replace_twimg_with_base64, crawl_captions, add_captions_to_images) ---
 # این توابع تقریباً بدون تغییر باقی می‌مانند، فقط لاگ‌ها حفظ می‌شوند.
