@@ -741,8 +741,25 @@ sys.stdout.flush()
 
 # 7. ارسال به بلاگر
 print("\n>>> مرحله ۷: ارسال پست به بلاگر...")
-# ... (کد مانند قبل با لاگ و مدیریت خطا) ...
 sys.stdout.flush()
+
+# لاگ‌گذاری محتوای HTML قبل از ارسال
+print("--- محتوای HTML ارسالی به بلاگر:")
+print(full_content[:1000])  # فقط ۱۰۰۰ کاراکتر اول رو چاپ می‌کنیم
+sys.stdout.flush()
+
+# اعتبارسنجی و اصلاح HTML
+print("--- اعتبارسنجی و اصلاح HTML...")
+sys.stdout.flush()
+try:
+    soup = BeautifulSoup(full_content, "html5lib")  # از html5lib برای اصلاح خودکار تگ‌ها استفاده می‌کنیم
+    full_content = str(soup)
+    print("--- HTML اصلاح شد.")
+    sys.stdout.flush()
+except Exception as e:
+    print(f"!!! خطا در اصلاح HTML: {e}")
+    sys.stdout.flush()
+
 try:
     post_body = {
         "kind": "blogger#post",
@@ -767,31 +784,31 @@ try:
     sys.stdout.flush()
 
 except HttpError as e:
-     # ... (مدیریت خطای HttpError مانند قبل) ...
-     try:
-          error_content = json.loads(e.content.decode('utf-8'))
-          error_details = error_content.get('error', {})
-          status_code = error_details.get('code', e.resp.status)
-          error_message = error_details.get('message', str(e))
-          print(f"!!! خطا در API بلاگر (کد {status_code}): {error_message}")
-          sys.stdout.flush()
-          if status_code == 401:
-              print("!!! خطای 401 (Unauthorized): اعتبارنامه (CREDENTIALS) نامعتبر یا منقضی شده است.")
-              sys.stdout.flush()
-          elif status_code == 403:
-               print("!!! خطای 403 (Forbidden): دسترسی به بلاگ یا انجام عملیات مجاز نیست.")
-               sys.stdout.flush()
-     except (json.JSONDecodeError, AttributeError):
-          print(f"!!! خطا در API بلاگر (وضعیت {e.resp.status}): {e}")
-          sys.stdout.flush()
+    try:
+        error_content = json.loads(e.content.decode('utf-8'))
+        error_details = error_content.get('error', {})
+        status_code = error_details.get('code', e.resp.status)
+        error_message = error_details.get('message', str(e))
+        print(f"!!! خطا در API بلاگر (کد {status_code}): {error_message}")
+        sys.stdout.flush()
+        if status_code == 401:
+            print("!!! خطای 401 (Unauthorized): اعتبارنامه (CREDENTIALS) نامعتبر یا منقضی شده است.")
+            sys.stdout.flush()
+        elif status_code == 403:
+            print("!!! خطای 403 (Forbidden): دسترسی به بلاگ یا انجام عملیات مجاز نیست.")
+            sys.stdout.flush()
+    except (json.JSONDecodeError, AttributeError):
+        print(f"!!! خطا در API بلاگر (وضعیت {e.resp.status}): {e}")
+        sys.stdout.flush()
+    raise
 
 except Exception as e:
-    # ... (مدیریت خطای عمومی مانند قبل) ...
     print(f"!!! خطای پیش‌بینی نشده در ارسال پست به بلاگر: {type(e).__name__} - {e}")
     import traceback
     print("Traceback:")
     traceback.print_exc()
     sys.stdout.flush()
+    raise
 
 
 print("\n" + "="*50)
