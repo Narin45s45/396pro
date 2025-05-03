@@ -123,14 +123,14 @@ def translate_with_gemini(text, target_lang="fa"):
 
     headers = {"Content-Type": "application/json"}
     prompt = (
-    f"متن زیر را به فارسی روان و ساده بازنویسی کن تا برای خوانندگان عمومی قابل فهم باشد.\n"
-    f"قوانین مهم:\n"
-    f"۱. ساختار HTML موجود (مثل تگ‌های <p>، <div>، <b>، <blockquote>، <a>) رو دقیقاً حفظ کن و تغییر نده. این شامل خود تگ‌ها، ویژگی‌ها (attributes) و ترتیبشون می‌شه.\n"
-    f"۲. فقط محتوای متنی داخل تگ‌های HTML (مثل متن داخل <p>، <a>، یا <blockquote>) رو به فارسی روان بازنویسی کن، اما خود تگ‌ها و ساختار HTML رو تغییر نده. حتی اگه تگ‌ها ویژگی lang='en' داشته باشن، باز هم محتوای متنی داخلشون رو به فارسی بازنویسی کن.\n"
-    f"۳. هیچ تگ HTML جدیدی (مثل <p>، <b>، <div>) به متن اضافه نکن، مگر اینکه توی متن اصلی وجود داشته باشه. اگه متن اصلی تگ HTML نداره (مثلاً یه متن ساده است)، خروجی هم باید بدون تگ HTML باشه.\n"
-    f"۴. placeholderهای تصویر (مثل ##IMG_PLACEHOLDER_...##) رو دقیقاً همون‌طور که هستن نگه دار و تغییر نده.\n"
-    f"۵. لینک‌ها (مثل آدرس‌های داخل href در تگ <a>) و متن‌های خاص مثل نام کاربری‌ها (مثل @Steph_iscrypto) یا تاریخ‌ها (مثل May 1, 2025) رو بازنویسی نکن و همون‌طور که هستن نگه دار.\n\n"
-    f"متن انگلیسی با HTML و Placeholderها برای بازنویسی:\n{text}"
+        f"متن زیر را به فارسی روان و ساده بازنویسی کن تا برای خوانندگان عمومی قابل فهم باشد.\n"
+        f"قوانین مهم:\n"
+        f"۱. ساختار HTML موجود (مثل تگ‌های <p>، <div>، <b>، <blockquote>، <a>) رو دقیقاً حفظ کن و تغییر نده. این شامل خود تگ‌ها، ویژگی‌ها (attributes) و ترتیبشون می‌شه.\n"
+        f"۲. فقط محتوای متنی داخل تگ‌های HTML (مثل متن داخل <p>، <a>، یا <blockquote>) رو به فارسی روان بازنویسی کن، اما خود تگ‌ها و ساختار HTML رو تغییر نده. حتی اگه تگ‌ها ویژگی lang='en' داشته باشن، باز هم محتوای متنی داخلشون رو به فارسی بازنویسی کن.\n"
+        f"۳. هیچ تگ HTML جدیدی (مثل <p>، <b>، <div>) به متن اضافه نکن، مگر اینکه توی متن اصلی وجود داشته باشه. اگه متن اصلی تگ HTML نداره (مثلاً یه متن ساده است)، خروجی هم باید بدون تگ HTML باشه.\n"
+        f"۴. placeholderهای تصویر (مثل ##IMG_PLACEHOLDER_...##) رو دقیقاً همون‌طور که هستن نگه دار و تغییر نده.\n"
+        f"۵. لینک‌ها (مثل آدرس‌های داخل href در تگ <a>) و متن‌های خاص مثل نام کاربری‌ها (مثل @Steph_iscrypto) یا تاریخ‌ها (مثل May 1, 2025) رو بازنویسی نکن و همون‌طور که هستن نگه دار.\n\n"
+        f"متن انگلیسی با HTML و Placeholderها برای بازنویسی:\n{text}"
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -203,43 +203,6 @@ def translate_with_gemini(text, target_lang="fa"):
             print("<<< ترجمه متن با Gemini با موفقیت انجام شد.")
             sys.stdout.flush()
             translated_text = re.sub(r'^```html\s*', '', translated_text, flags=re.IGNORECASE)
-            translated_text = re.sub(r'\s*```$', '', translated_text)
-            return translated_text.strip()
-
-        except requests.exceptions.Timeout:
-            print(f"!!! خطا: درخواست به API Gemini زمان‌بر شد (Timeout پس از {GEMINI_TIMEOUT} ثانیه).")
-            sys.stdout.flush()
-            if attempt >= max_retries:
-                print("!!! تلاش‌های مکرر برای Gemini ناموفق بود (Timeout).")
-                sys.stdout.flush()
-                raise ValueError(f"API Gemini پس از چند بار تلاش پاسخ نداد (Timeout در تلاش {attempt+1}).")
-            print(f"--- منتظر ماندن برای {retry_delay} ثانیه قبل از تلاش مجدد...")
-            sys.stdout.flush()
-            time.sleep(retry_delay)
-            retry_delay *= 1.5
-        except requests.exceptions.RequestException as e:
-            print(f"!!! خطا در درخواست به API Gemini: {e}")
-            sys.stdout.flush()
-            if attempt >= max_retries:
-                print("!!! تلاش‌های مکرر برای Gemini ناموفق بود (خطای شبکه).")
-                sys.stdout.flush()
-                raise ValueError(f"خطا در درخواست API Gemini پس از چند بار تلاش: {e}")
-            print(f"--- منتظر ماندن برای {retry_delay} ثانیه قبل از تلاش مجدد...")
-            sys.stdout.flush()
-            time.sleep(retry_delay)
-            retry_delay *= 1.5
-        except (ValueError, KeyError, json.JSONDecodeError) as e:
-            print(f"!!! خطا در پردازش پاسخ Gemini یا خطای داده: {e}")
-            sys.stdout.flush()
-            raise
-        except Exception as e:
-             print(f"!!! خطای پیش‌بینی نشده در تابع ترجمه: {e}")
-             sys.stdout.flush()
-             raise
-
-    print("!!! ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
-    sys.stdout.flush()
-    raise ValueError("ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
 
 # --- بقیه توابع (remove_newsbtc_links, replace_twimg_with_base64, crawl_captions, add_captions_to_images) ---
 # این توابع تقریباً بدون تغییر باقی می‌مانند، فقط لاگ‌ها حفظ می‌شوند.
