@@ -101,7 +101,7 @@ def restore_images_from_placeholders(html_content, placeholder_map):
     sys.stdout.flush()
     return restored_content
     
-# --- تابع ترجمه با Gemini (با پیش‌پردازش برای lang) ---
+# --- تابع ترجمه با Gemini (بدون تغییر زیاد، فقط پرامپت) ---
 def translate_with_gemini(text, target_lang="fa"):
     print(f">>> شروع ترجمه متن با Gemini (طول متن: {len(text)} کاراکتر)...")
     sys.stdout.flush()
@@ -110,27 +110,16 @@ def translate_with_gemini(text, target_lang="fa"):
          sys.stdout.flush()
          return ""
 
-    # پیش‌پردازش: تغییر یا حذف ویژگی lang از تگ‌ها
-    print("--- پیش‌پردازش: تغییر ویژگی lang در تگ‌ها...")
-    sys.stdout.flush()
-    soup = BeautifulSoup(text, "html.parser")
-    for tag in soup.find_all(True):  # همه تگ‌ها
-        if tag.get("lang") == "en":
-            tag["lang"] = "fa"  # تغییر lang به fa
-            print(f"--- تغییر lang='en' به lang='fa' در تگ {tag.name}")
-            sys.stdout.flush()
-    text = str(soup)
-
     headers = {"Content-Type": "application/json"}
     prompt = (
-        f"متن زیر را به روسی روان و ساده ترجمه کن تا برای خوانندگان عمومی قابل فهم باشد.\n"
+        f"متن زیر را به فارسی روان و ساده بازنویسی کن تا برای خوانندگان عمومی قابل فهم باشد.\n"
         f"قوانین مهم:\n"
         f"۱. ساختار HTML موجود (مثل تگ‌های <p>، <div>، <b>، <blockquote>، <a>) رو دقیقاً حفظ کن و تغییر نده. این شامل خود تگ‌ها، ویژگی‌ها (attributes) و ترتیبشون می‌شه.\n"
-        f"۲. فقط محتوای متنی داخل تگ‌های HTML (مثل متن داخل <p>، <a>، یا <blockquote>) رو به ژاپنی روان ترجمه کن، اما خود تگ‌ها و ساختار HTML رو تغییر نده. حتی اگه تگ‌ها ویژگی lang='en' داشته باشن، باز هم محتوای متنی داخلشون رو به فارسی ترجمه کن.\n"
+        f"۲. فقط محتوای متنی داخل تگ‌های HTML (مثل متن داخل <p>، <a>، یا <blockquote>) رو به فارسی روان ترجمه کن، اما خود تگ‌ها و ساختار HTML رو تغییر نده.\n"
         f"۳. هیچ تگ HTML جدیدی (مثل <p>، <b>، <div>) به متن اضافه نکن، مگر اینکه توی متن اصلی وجود داشته باشه. اگه متن اصلی تگ HTML نداره (مثلاً یه متن ساده است)، خروجی هم باید بدون تگ HTML باشه.\n"
         f"۴. placeholderهای تصویر (مثل ##IMG_PLACEHOLDER_...##) رو دقیقاً همون‌طور که هستن نگه دار و تغییر نده.\n"
         f"۵. لینک‌ها (مثل آدرس‌های داخل href در تگ <a>) و متن‌های خاص مثل نام کاربری‌ها (مثل @Steph_iscrypto) یا تاریخ‌ها (مثل May 1, 2025) رو ترجمه نکن و همون‌طور که هستن نگه دار.\n\n"
-        f"متن انگلیسی با HTML و Placeholderها برای ترجمه:\n{text}"
+        f"متن انگلیسی با HTML و Placeholderها برای بازنویسی:\n{text}"
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -147,7 +136,7 @@ def translate_with_gemini(text, target_lang="fa"):
                 f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
                 headers=headers,
                 json=payload,
-                timeout=GEMINI_TIMEOUT
+                timeout=GEMINI_TIMEOUT # Timeout بیشتر
             )
             print(f"--- پاسخ اولیه از Gemini دریافت شد (کد وضعیت: {response.status_code})")
             sys.stdout.flush()
@@ -165,6 +154,7 @@ def translate_with_gemini(text, target_lang="fa"):
             sys.stdout.flush()
             result = response.json()
 
+            # ... (بقیه بررسی‌های پاسخ Gemini مانند قبل) ...
             if not result or "candidates" not in result or not result["candidates"]:
                  feedback = result.get("promptFeedback", {})
                  block_reason = feedback.get("blockReason")
@@ -240,7 +230,6 @@ def translate_with_gemini(text, target_lang="fa"):
     print("!!! ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
     sys.stdout.flush()
     raise ValueError("ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
-
 
 
 # --- بقیه توابع (remove_newsbtc_links, replace_twimg_with_base64, crawl_captions, add_captions_to_images) ---
