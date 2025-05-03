@@ -203,6 +203,43 @@ def translate_with_gemini(text, target_lang="fa"):
             print("<<< ترجمه متن با Gemini با موفقیت انجام شد.")
             sys.stdout.flush()
             translated_text = re.sub(r'^```html\s*', '', translated_text, flags=re.IGNORECASE)
+            translated_text = re.sub(r'\s*```$', '', translated_text)
+            return translated_text.strip()
+
+        except requests.exceptions.Timeout:
+            print(f"!!! خطا: درخواست به API Gemini زمان‌بر شد (Timeout پس از {GEMINI_TIMEOUT} ثانیه).")
+            sys.stdout.flush()
+            if attempt >= max_retries:
+                print("!!! تلاش‌های مکرر برای Gemini ناموفق بود (Timeout).")
+                sys.stdout.flush()
+                raise ValueError(f"API Gemini پس از چند بار تلاش پاسخ نداد (Timeout در تلاش {attempt+1}).")
+            print(f"--- منتظر ماندن برای {retry_delay} ثانیه قبل از تلاش مجدد...")
+            sys.stdout.flush()
+            time.sleep(retry_delay)
+            retry_delay *= 1.5
+        except requests.exceptions.RequestException as e:
+            print(f"!!! خطا در درخواست به API Gemini: {e}")
+            sys.stdout.flush()
+            if attempt >= max_retries:
+                print("!!! تلاش‌های مکرر برای Gemini ناموفق بود (خطای شبکه).")
+                sys.stdout.flush()
+                raise ValueError(f"خطا در درخواست API Gemini پس از چند بار تلاش: {e}")
+            print(f"--- منتظر ماندن برای {retry_delay} ثانیه قبل از تلاش مجدد...")
+            sys.stdout.flush()
+            time.sleep(retry_delay)
+            retry_delay *= 1.5
+        except (ValueError, KeyError, json.JSONDecodeError) as e:
+            print(f"!!! خطا در پردازش پاسخ Gemini یا خطای داده: {e}")
+            sys.stdout.flush()
+            raise
+        except Exception as e:
+             print(f"!!! خطای پیش‌بینی نشده در تابع ترجمه: {e}")
+             sys.stdout.flush()
+             raise
+
+    print("!!! ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
+    sys.stdout.flush()
+    raise ValueError("ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
 
 # --- بقیه توابع (remove_newsbtc_links, replace_twimg_with_base64, crawl_captions, add_captions_to_images) ---
 # این توابع تقریباً بدون تغییر باقی می‌مانند، فقط لاگ‌ها حفظ می‌شوند.
