@@ -555,23 +555,7 @@ else:
 print(f"<<< مرحله ۲ کامل شد (تعداد کپشن یافت شده: {len(original_captions_with_images)}).")
 sys.stdout.flush()
 
-# 3. ترجمه عنوان
-print("\n>>> مرحله ۳: ترجمه عنوان پست...")
-sys.stdout.flush()
-title = latest_post.title
-translated_title = title
-try:
-    translated_title = translate_with_gemini(title).splitlines()[0]
-    translated_title = translated_title.replace("**", "").replace("`", "")
-    print(f"--- عنوان ترجمه‌شده: {translated_title}")
-    sys.stdout.flush()
-except Exception as e:
-    print(f"!!! خطای جدی در ترجمه عنوان با Gemini: {type(e).__name__} - {e}")
-    print("!!! اسکریپت به دلیل خطا در اتصال به Gemini یا ترجمه عنوان متوقف می‌شود.")
-    sys.stdout.flush()
-    exit(1)  # متوقف کردن اسکریپت
-print("<<< مرحله ۳ کامل شد.")
-sys.stdout.flush()
+
 
 # 4. پردازش تصویر بندانگشتی (Thumbnail)
 print("\n>>> مرحله ۴: پردازش تصویر بندانگشتی...")
@@ -617,17 +601,18 @@ if thumbnail_processed: print("<<< مرحله ۴ کامل شد.")
 else: print("<<< مرحله ۴ رد شد.")
 sys.stdout.flush()
 
-
 # 5. پردازش محتوای اصلی (با Placeholder)
 print("\n>>> مرحله ۵: پردازش محتوای اصلی...")
 sys.stdout.flush()
 content_html = ""
 final_content_for_post = "<p>خطا: محتوای نهایی ایجاد نشد.</p>"
 placeholder_map_global = {} # برای استفاده در حالت خطا
+translated_title = "بدون عنوان" # پیش‌فرض در صورت عدم یافتن عنوان
 
 try:
     content_source = ""
-    # ... (کد دریافت content_source مانند قبل) ...
+    # استخراج عنوان و محتوا
+    title = latest_post.title if hasattr(latest_post, 'title') else "بدون عنوان"
     if 'content' in latest_post and latest_post.content:
         if isinstance(latest_post.content, list) and len(latest_post.content) > 0 and 'value' in latest_post.content[0]:
             content_source = latest_post.content[0]['value']
@@ -635,6 +620,14 @@ try:
             content_source = latest_post.content['value']
     elif 'summary' in latest_post:
         content_source = latest_post.summary
+
+    # افزودن عنوان به محتوا (اگر تگ <h1> وجود ندارد)
+    soup = BeautifulSoup(content_source, "html.parser")
+    if not soup.find("h1"):
+        content_source = f'<h1>{title}</h1>{content_source}'
+    else:
+        # اگر تگ <h1> وجود دارد، از همان استفاده می‌کنیم
+        pass
 
     if content_source:
         print(f"--- محتوای خام یافت شد (طول: {len(content_source)} کاراکتر).")
@@ -654,36 +647,48 @@ try:
         print("--- تبدیل عکس‌های twimg کامل شد.")
         sys.stdout.flush()
 
-        # 5.3 **جایگزینی همه عکس‌ها با Placeholder**
+        # 5.3 جایگزینی همه عکس‌ها با Placeholder
         print("--- 5.3 جایگزینی همه عکس‌ها با Placeholder قبل از ترجمه...")
         sys.stdout.flush()
         content_with_placeholders, placeholder_map_global = replace_images_with_placeholders(content_with_base64_images)
         print("--- جایگزینی با Placeholder کامل شد.")
         sys.stdout.flush()
 
-        # 5.4 ترجمه محتوا (حالا با Placeholderها)
+        # 5.4 ترجمه محتوا (شامل عنوان و بدنه)
         print("--- 5.4 ترجمه محتوای حاوی Placeholder...")
         sys.stdout.flush()
         translated_content_with_placeholders = translate_with_gemini(content_with_placeholders)
         print("--- ترجمه محتوای حاوی Placeholder کامل شد.")
         sys.stdout.flush()
 
-        # 5.5 **بازگرداندن عکس‌ها از Placeholder**
+        # 5.5 بازگرداندن عکس‌ها از Placeholder
         print("--- 5.5 بازگرداندن عکس‌ها از Placeholder در متن ترجمه شده...")
         sys.stdout.flush()
         translated_content_restored = restore_images_from_placeholders(translated_content_with_placeholders, placeholder_map_global)
         print("--- بازگرداندن عکس‌ها کامل شد.")
         sys.stdout.flush()
 
-        # 5.6 اضافه کردن کپشن‌ها به محتوای ترجمه شده و بازیابی شده
-        print("--- 5.6 اضافه کردن کپشن‌ها به محتوای نهایی...")
+        # 5.6 استخراج عنوان ترجمه‌شده
+        print("--- 5.6 استخراج عنوان ترجمه‌شده...")
+        sys.stdout.flush()
+        soup_translated = BeautifulSoup(translated_content_restored, "html.parser")
+        h1_tag = soup_translated.find("h1")
+        if h1_tag:
+            translated_title = h1_tag.get_text(strip=True)
+            print(f"--- عنوان ترجمه‌شده: {translated_title}")
+        else:
+            print("--- هشدار: تگ <h1> در محتوای ترجمه‌شده یافت نشد. از عنوان پیش‌فرض استفاده می‌شود.")
+        sys.stdout.flush()
+
+        # 5.7 اضافه کردن کپشن‌ها به محتوای ترجمه‌شده
+        print("--- 5.7 اضافه کردن کپشن‌ها به محتوای نهایی...")
         sys.stdout.flush()
         content_with_captions = add_captions_to_images(translated_content_restored, original_captions_with_images)
         print("--- اضافه کردن کپشن‌ها کامل شد.")
         sys.stdout.flush()
 
-        # 5.7 تنظیمات نهایی استایل و پاکسازی
-        print("--- 5.7 اعمال استایل نهایی به عکس‌ها و پاکسازی HTML...")
+        # 5.8 تنظیمات نهایی استایل و پاکسازی
+        print("--- 5.8 اعمال استایل نهایی به عکس‌ها و پاکسازی HTML...")
         sys.stdout.flush()
         soup_final = BeautifulSoup(content_with_captions, "html.parser")
         for img_tag in soup_final.find_all("img"):
@@ -698,19 +703,17 @@ try:
         content_html = str(soup_final)
         print("--- استایل‌دهی نهایی و پاکسازی کامل شد.")
         sys.stdout.flush()
-        final_content_for_post = f'<div style="line-height: 1.7;">{content_html}</div>' # Wrapper بدون direction
+        final_content_for_post = f'<div style="line-height: 1.7;">{content_html}</div>'
 
     elif original_captions_with_images:
-         # ... (مانند قبل) ...
         print("--- هشدار: محتوای اصلی یافت نشد، فقط از کپشن‌ها استفاده می‌شود.")
         sys.stdout.flush()
         captions_html = "".join([item["caption"] for item in original_captions_with_images])
-        final_content_for_post = f'<div style="text-align: center; font-size: small;">{captions_html}</div>'
+        final_content_for_post = f'<h1>{translated_title}</h1><div style="text-align: center; font-size: small;">{captions_html}</div>'
     else:
-        # ... (مانند قبل) ...
         print("!!! محتوایی برای پردازش یافت نشد.")
         sys.stdout.flush()
-        final_content_for_post = "<p style='text-align: center;'>محتوایی برای نمایش یافت نشد.</p>"
+        final_content_for_post = f'<h1>{translated_title}</h1><p style="text-align: center;">محتوایی برای نمایش یافت نشد.</p>"
 
 except Exception as e:
     print(f"!!! خطای جدی در پردازش محتوای اصلی (مرحله ۵): {type(e).__name__} - {e}")
@@ -718,20 +721,17 @@ except Exception as e:
     print("Traceback:")
     traceback.print_exc()
     sys.stdout.flush()
-    # Fallback: نمایش محتوای اصلی انگلیسی، اما سعی کن عکس ها را از placeholder بازگردانی کنی
     if 'content_with_base64_images' in locals() and content_with_base64_images:
          print("--- استفاده از محتوای انگلیسی پردازش شده به عنوان جایگزین...")
          sys.stdout.flush()
-         # حتی در حالت خطا، سعی کن کپشن ها را اضافه کنی
          try:
               content_fallback_with_captions = add_captions_to_images(content_with_base64_images, original_captions_with_images)
-              final_content_for_post = f"<p style='color: red;'><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) با کپشن‌ها در زیر نمایش داده می‌شود.]</i></p><div style='text-align:left; direction:ltr;'>{content_fallback_with_captions}</div>"
+              final_content_for_post = f'<h1>{translated_title}</h1><p style="color: red;"><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) با کپشن‌ها در زیر نمایش داده می‌شود.]</i></p><div style="text-align:left; direction:ltr;">{content_fallback_with_captions}</div>'
          except Exception as fallback_e:
               print(f"!!! خطا در افزودن کپشن به محتوای جایگزین: {fallback_e}")
-              final_content_for_post = f"<p style='color: red;'><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) در زیر نمایش داده می‌شود.]</i></p><div style='text-align:left; direction:ltr;'>{content_with_base64_images}</div>"
-
+              final_content_for_post = f'<h1>{translated_title}</h1><p style="color: red;"><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) در زیر نمایش داده می‌شود.]</i></p><div style="text-align:left; direction:ltr;">{content_with_base64_images}</div>'
     else:
-         final_content_for_post = f"<p style='text-align: center; color: red;'>خطای جدی در پردازش محتوا: {e}</p>"
+         final_content_for_post = f'<h1>{translated_title}</h1><p style="text-align: center; color: red;">خطای جدی در پردازش محتوا: {e}</p>'
 
 print("<<< مرحله ۵ کامل شد.")
 sys.stdout.flush()
