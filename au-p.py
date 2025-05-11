@@ -626,7 +626,6 @@ try:
     if not soup.find("h1"):
         content_source = f'<h1>{title}</h1>{content_source}'
     else:
-        # اگر تگ <h1> وجود دارد، از همان استفاده می‌کنیم
         pass
 
     if content_source:
@@ -668,16 +667,20 @@ try:
         print("--- بازگرداندن عکس‌ها کامل شد.")
         sys.stdout.flush()
 
-        # 5.6 استخراج عنوان ترجمه‌شده
-        print("--- 5.6 استخراج عنوان ترجمه‌شده...")
+        # 5.6 استخراج عنوان ترجمه‌شده و حذف تگ‌های <h1> اضافی
+        print("--- 5.6 استخراج عنوان ترجمه‌شده و پاکسازی تگ‌های <h1> اضافی...")
         sys.stdout.flush()
         soup_translated = BeautifulSoup(translated_content_restored, "html.parser")
-        h1_tag = soup_translated.find("h1")
-        if h1_tag:
-            translated_title = h1_tag.get_text(strip=True)
+        h1_tags = soup_translated.find_all("h1")
+        if h1_tags:
+            translated_title = h1_tags[0].get_text(strip=True)
             print(f"--- عنوان ترجمه‌شده: {translated_title}")
+            for h1 in h1_tags[1:]:
+                h1.decompose()
         else:
             print("--- هشدار: تگ <h1> در محتوای ترجمه‌شده یافت نشد. از عنوان پیش‌فرض استفاده می‌شود.")
+            translated_title = "بدون عنوان"
+        soup_translated.insert(0, BeautifulSoup(f'<h1>{translated_title}</h1>', "html.parser"))
         sys.stdout.flush()
 
         # 5.7 اضافه کردن کپشن‌ها به محتوای ترجمه‌شده
@@ -711,9 +714,9 @@ try:
         captions_html = "".join([item["caption"] for item in original_captions_with_images])
         final_content_for_post = f'<h1>{translated_title}</h1><div style="text-align: center; font-size: small;">{captions_html}</div>'
     else:
-    print("!!! محتوایی برای پردازش یافت نشد.")
-    sys.stdout.flush()
-    final_content_for_post = f'<h1>{translated_title}</h1><p style="text-align: center;">محتوایی برای نمایش یافت نشد.</p>'
+        print("!!! محتوایی برای پردازش یافت نشد.")
+        sys.stdout.flush()
+        final_content_for_post = f'<h1>{translated_title}</h1><p style="text-align: center;">محتوایی برای نمایش یافت نشد.</p>'
 
 except Exception as e:
     print(f"!!! خطای جدی در پردازش محتوای اصلی (مرحله ۵): {type(e).__name__} - {e}")
@@ -722,20 +725,21 @@ except Exception as e:
     traceback.print_exc()
     sys.stdout.flush()
     if 'content_with_base64_images' in locals() and content_with_base64_images:
-         print("--- استفاده از محتوای انگلیسی پردازش شده به عنوان جایگزین...")
-         sys.stdout.flush()
-         try:
-              content_fallback_with_captions = add_captions_to_images(content_with_base64_images, original_captions_with_images)
-              final_content_for_post = f'<h1>{translated_title}</h1><p style="color: red;"><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) با کپشن‌ها در زیر نمایش داده می‌شود.]</i></p><div style="text-align:left; direction:ltr;">{content_fallback_with_captions}</div>'
-         except Exception as fallback_e:
-              print(f"!!! خطا در افزودن کپشن به محتوای جایگزین: {fallback_e}")
-              final_content_for_post = f'<h1>{translated_title}</h1><p style="color: red;"><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) در زیر نمایش داده می‌شود.]</i></p><div style="text-align:left; direction:ltr;">{content_with_base64_images}</div>'
+        print("--- استفاده از محتوای انگلیسی پردازش شده به عنوان جایگزین...")
+        sys.stdout.flush()
+        try:
+            content_fallback_with_captions = add_captions_to_images(content_with_base64_images, original_captions_with_images)
+            final_content_for_post = f'<h1>{translated_title}</h1><p style="color: red;"><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) با کپشن‌ها در زیر نمایش داده می‌شود.]</i></p><div style="text-align:left; direction:ltr;">{content_fallback_with_captions}</div>'
+        except Exception as fallback_e:
+            print(f"!!! خطا در افزودن کپشن به محتوای جایگزین: {fallback_e}")
+            final_content_for_post = f'<h1>{translated_title}</h1><p style="color: red;"><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) در زیر نمایش داده می‌شود.]</i></p><div style="text-align:left; direction:ltr;">{content_with_base64_images}</div>'
     else:
-         final_content_for_post = f'<h1>{translated_title}</h1><p style="text-align: center; color: red;">خطای جدی در پردازش محتوا: {e}</p>'
+        print("!!! محتوایی برای پردازش یافت نشد.")
+        sys.stdout.flush()
+        final_content_for_post = f'<h1>{translated_title}</h1><p style="text-align: center;">محتوایی برای نمایش یافت نشد.</p>'
 
 print("<<< مرحله ۵ کامل شد.")
 sys.stdout.flush()
-
 
 # 6. ساختار نهایی پست
 print("\n>>> مرحله ۶: آماده‌سازی ساختار نهایی پست HTML...")
