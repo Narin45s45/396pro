@@ -710,10 +710,10 @@ try:
         sys.stdout.flush()
         captions_html = "".join([item["caption"] for item in original_captions_with_images])
         final_content_for_post = f'<h1>{translated_title}</h1><div style="text-align: center; font-size: small;">{captions_html}</div>'
-    else:
-        print("!!! محتوایی برای پردازش یافت نشد.")
-        sys.stdout.flush()
-        final_content_for_post = f'<h1>{translated_title}</h1><p style="text-align: center;">محتوایی برای نمایش یافت نشد.</p>"
+   else:
+    print("!!! محتوایی برای پردازش یافت نشد.")
+    sys.stdout.flush()
+    final_content_for_post = f'<h1>{translated_title}</h1><p style="text-align: center;">محتوایی برای نمایش یافت نشد.</p>'
 
 except Exception as e:
     print(f"!!! خطای جدی در پردازش محتوای اصلی (مرحله ۵): {type(e).__name__} - {e}")
