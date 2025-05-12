@@ -103,12 +103,12 @@ def restore_images_from_placeholders(html_content, placeholder_map):
 
 # --- تابع ترجمه عنوان با Gemini (پرامپت ساده) ---
 def translate_title_with_gemini(text_title, target_lang="fa"):
-    print(f">>> شروع ترجمه عنوان با Gemini (عنوان: {text_title[:50]}...)...")
-    sys.stdout.flush()
-    if not text_title or text_title.isspace():
-        print("--- متن عنوان برای ترجمه خالی است. رد شدن از ترجمه.")
-        sys.stdout.flush()
-        return ""
+    print(f">>> شروع ترجمه عنوان با Gemini (عنوان: {text_title[:50]}...)...")
+    sys.stdout.flush()
+    if not text_title or text_title.isspace():
+        print("--- متن عنوان برای ترجمه خالی است. رد شدن از ترجمه.")
+        sys.stdout.flush()
+        return ""
 
     headers = {"Content-Type": "application/json"}
     
