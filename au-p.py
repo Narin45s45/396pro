@@ -113,66 +113,74 @@ def translate_title_with_gemini(text_title, target_lang="fa"):
     headers = {"Content-Type": "application/json"}
 
     prompt = (
-    f"عنوان خبری انگلیسی زیر را به یک تیتر فارسی **بسیار جذاب، خلاقانه و بهینه شده برای موتورهای جستجو (SEO-friendly)** تبدیل کن. تیتر نهایی باید عصاره اصلی خبر را منتقل کند، کنجکاوی مخاطب علاقه‌مند به حوزه ارز دیجیتال را برانگیزد و او را به خواندن ادامه مطلب ترغیب کند. از ترجمه تحت‌اللفظی پرهیز کن و به جای آن، تیتری خلق کن که دیدگاهی نو ارائه دهد یا اهمیت کلیدی موضوع را برجسته سازد.\n"
-    f"به این فکر کن که چه تیتری باعث می‌شود خواننده روی آن کلیک کرده و مشتاق به دانستن بیشتر شود.\n"
-    f"**فقط و فقط تیتر فارسی ساخته شده را به صورت یک خط، بدون هیچ‌گونه توضیح اضافی، علامت نقل قول یا پیشوند بازگردان.**\n"
-    f"عنوان اصلی انگلیسی: \"{text_title}\"\n"
-    f"تیتر فارسی جذاب و خلاقانه:"
+        f"عنوان خبری انگلیسی زیر را به یک تیتر فارسی **بسیار جذاب، خلاقانه و بهینه شده برای موتورهای جستجو (SEO-friendly)** تبدیل کن. تیتر نهایی باید عصاره اصلی خبر را منتقل کند، کنجکاوی مخاطب علاقه‌مند به حوزه ارز دیجیتال را برانگیزد و او را به خواندن ادامه مطلب ترغیب کند. از ترجمه تحت‌اللفظی پرهیز کن و به جای آن، تیتری خلق کن که دیدگاهی نو ارائه دهد یا اهمیت کلیدی موضوع را برجسته سازد.\n"
+        f"به این فکر کن که چه تیتری باعث می‌شود خواننده روی آن کلیک کرده و مشتاق به دانستن بیشتر شود.\n"
+        f"**فقط و فقط تیتر فارسی ساخته شده را به صورت یک خط، بدون هیچ‌گونه توضیح اضافی، علامت نقل قول یا پیشوند بازگردان.**\n"
+        f"عنوان اصلی انگلیسی: \"{text_title}\"\n"
+        f"تیتر فارسی جذاب و خلاقانه:"
     )
 
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.7, "topP": 0.95, "topK": 40} # Temperature ممکن است برای عنوان کمی بالاتر باشد برای خلاقیت بیشتر اگر نیاز بود
-    }
-    max_retries = 2
-    retry_delay = 10 # ممکن است برای عنوان زمان کمتری نیاز باشد
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.7, "topP": 0.95, "topK": 40}  # Temperature ممکن است برای عنوان کمی بالاتر باشد برای خلاقیت بیشتر اگر نیاز بود
+    }
+    max_retries = 2
+    retry_delay = 10  # ممکن است برای عنوان زمان کمتری نیاز باشد
 
-    for attempt in range(max_retries + 1):
-        print(f"--- تلاش {attempt + 1}/{max_retries + 1} برای ترجمه عنوان با API Gemini...")
-        sys.stdout.flush()
-        try:
-            response = requests.post(
-                f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
-                headers=headers,
-                json=payload,
-                timeout=REQUEST_TIMEOUT # از timeout عمومی می‌توان استفاده کرد
-            )
-            response.raise_for_status()
-            result = response.json()
+    for attempt in range(max_retries + 1):
+        print(f"--- تلاش {attempt + 1}/{max_retries + 1} برای ترجمه عنوان با API Gemini...")
+        sys.stdout.flush()
+        try:
+            response = requests.post(
+                f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
+                headers=headers,
+                json=payload,
+                timeout=REQUEST_TIMEOUT  # از timeout عمومی می‌توان استفاده کرد
+            )
+            response.raise_for_status()
+            result = response.json()
 
-            if result and "candidates" in result and result["candidates"] and \
-               "content" in result["candidates"][0] and \
-               "parts" in result["candidates"][0]["content"] and \
-               result["candidates"][0]["content"]["parts"] and \
-               "text" in result["candidates"][0]["content"]["parts"][0]:
-                translated_text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
-                print("<<< ترجمه عنوان با Gemini با موفقیت انجام شد.")
-                sys.stdout.flush()
-                return translated_text
-            else:
-                 print(f"!!! پاسخ غیرمنتظره از API Gemini برای ترجمه عنوان: {result}")
-                 sys.stdout.flush()
-                 if attempt < max_retries: time.sleep(retry_delay); retry_delay *= 1.5; continue
-                  raise ValueError("پاسخ غیرمنتظره از API Gemini برای ترجمه عنوان")
-        except requests.exceptions.Timeout:
-            print(f"!!! خطا: درخواست ترجمه عنوان به API Gemini زمان‌بر شد.")
-            sys.stdout.flush()
-            if attempt < max_retries: time.sleep(retry_delay); retry_delay *= 1.5; continue
-             raise
-        except requests.exceptions.RequestException as e:
-            print(f"!!! خطا در درخواست ترجمه عنوان به API Gemini: {e}")
-            sys.stdout.flush()
-            if attempt < max_retries: time.sleep(retry_delay); retry_delay *= 1.5; continue
-             raise
-        except Exception as e:
-            print(f"!!! خطای پیش‌بینی نشده در تابع ترجمه عنوان: {e}")
-            sys.stdout.flush()
-             raise
+            if result and "candidates" in result and result["candidates"] and \
+               "content" in result["candidates"][0] and \
+               "parts" in result["candidates"][0]["content"] and \
+               result["candidates"][0]["content"]["parts"] and \
+               "text" in result["candidates"][0]["content"]["parts"][0]:
+                translated_text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
+                print("<<< ترجمه عنوان با Gemini با موفقیت انجام شد.")
+                sys.stdout.flush()
+                return translated_text
+            else:
+                print(f"!!! پاسخ غیرمنتظره از API Gemini برای ترجمه عنوان: {result}")
+                sys.stdout.flush()
+                if attempt < max_retries:
+                    time.sleep(retry_delay)
+                    retry_delay *= 1.5
+                    continue
+                raise ValueError("پاسخ غیرمنتظره از API Gemini برای ترجمه عنوان")
+        except requests.exceptions.Timeout:
+            print(f"!!! خطا: درخواست ترجمه عنوان به API Gemini زمان‌بر شد.")
+            sys.stdout.flush()
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+                retry_delay *= 1.5
+                continue
+            raise
+        except requests.exceptions.RequestException as e:
+            print(f"!!! خطا در درخواست ترجمه عنوان به API Gemini: {e}")
+            sys.stdout.flush()
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+                retry_delay *= 1.5
+                continue
+            raise
+        except Exception as e:
+            print(f"!!! خطای پیش‌بینی نشده در تابع ترجمه عنوان: {e}")
+            sys.stdout.flush()
+            raise
 
-    print("!!! ترجمه عنوان با Gemini پس از تمام تلاش‌ها ناموفق بود.")
-    sys.stdout.flush()
-    raise ValueError("ترجمه عنوان با Gemini پس از تمام تلاش‌ها ناموفق بود.")
-
+    print("!!! ترجمه عنوان با Gemini پس از تمام تلاش‌ها ناموفق بود.")
+    sys.stdout.flush()
+    raise ValueError("ترجمه عنوان با Gemini پس از تمام تلاش‌ها ناموفق بود.")
 
 
 # --- تابع ترجمه با Gemini (بدون تغییر زیاد، فقط پرامپت) ---
