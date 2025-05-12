@@ -658,19 +658,19 @@ sys.stdout.flush()
 print("\n>>> مرحله ۳: ترجمه عنوان پست...")
 sys.stdout.flush()
 title = latest_post.title
-translated_title = title # مقدار اولیه در صورت بروز خطا
+translated_title = title  # مقدار اولیه در صورت بروز خطا
 try:
-    # استفاده از تابع جدید برای ترجمه عنوان
-    translated_title_text = translate_title_with_gemini(title) # دریافت متن خالص ترجمه شده
-    translated_title = translated_title_text.splitlines()[0] # اطمینان از تک خطی بودن
-    translated_title = translated_title.replace("**", "").replace("`", "") # پاکسازی‌های احتمالی
-    print(f"--- عنوان ترجمه‌شده: {translated_title}")
-    sys.stdout.flush()
+    # استفاده از تابع جدید برای ترجمه عنوان
+    translated_title_text = translate_title_with_gemini(title)  # دریافت متن خالص ترجمه شده
+    translated_title = translated_title_text.splitlines()[0]  # اطمینان از تک خطی بودن
+    translated_title = translated_title.replace("**", "").replace("`", "")  # پاکسازی‌های احتمالی
+    print(f"--- عنوان ترجمه‌شده: {translated_title}")
+    sys.stdout.flush()
 except Exception as e:
-    print(f"!!! خطای جدی در ترجمه عنوان با Gemini: {type(e).__name__} - {e}")
-    print("!!! اسکریپت به دلیل خطا در اتصال به Gemini یا ترجمه عنوان متوقف می‌شود.")
-    sys.stdout.flush()
-    exit(1)
+    print(f"!!! خطای جدی در ترجمه عنوان با Gemini: {type(e).__name__} - {e}")
+    print("!!! اسکریپت به دلیل خطا در اتصال به Gemini یا ترجمه عنوان متوقف می‌شود.")
+    sys.stdout.flush()
+    exit(1)
 print("<<< مرحله ۳ کامل شد.")
 sys.stdout.flush()
 
