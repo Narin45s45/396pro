@@ -96,7 +96,6 @@ def restore_images_from_placeholders(html_content, placeholder_map):
              print(f"--- هشدار: Placeholder '{placeholder}' در متن ترجمه شده یافت نشد!")
              sys.stdout.flush()
 
-
     print(f"--- {count} عکس از Placeholder بازگردانده شد.")
     sys.stdout.flush()
     return restored_content
@@ -181,7 +180,6 @@ def translate_title_with_gemini(text_title, target_lang="fa"):
     sys.stdout.flush()
     raise ValueError("ترجمه عنوان با Gemini پس از تمام تلاش‌ها ناموفق بود.")
 
-
 # --- تابع ترجمه با Gemini (بدون تغییر زیاد، فقط پرامپت) ---
 def translate_with_gemini(text, target_lang="fa"):
     print(f">>> شروع ترجمه متن با Gemini (طول متن: {len(text)} کاراکتر)...")
@@ -206,16 +204,11 @@ def translate_with_gemini(text, target_lang="fa"):
     f"8. ساختار HTML موجود (مثل تگ‌های <p>، <div>، <b>، <blockquote>، <a>) رو دقیقاً حفظ کن و تغییر نده. این شامل خود تگ‌ها، ویژگی‌ها (attributes) و ترتیبشون می‌شه.\n"
     f"9. محتوای متنی داخل تگ‌های HTML (مثل متن داخل <p>، <a>، یا <blockquote>) رو به فارسی روان بازنویسی کن به طوری که ارزش افزوده پیدا کنه و مفهوم کلی رو واضح بیان کنه ، حتی اگر تگ‌ها ویژگی lang='en' یا هر زبان دیگه‌ای داشته باشن. این شامل محتوای متنی داخل تگ‌های تو در تو (مثل تگ‌های <p> یا <a> داخل <blockquote>) هم می‌شه.\n"
 
-
     f"10. هیچ تگ HTML جدیدی (مثل <p>، <b>، <div>) به متن اضافه نکن، مگر اینکه توی متن اصلی وجود داشته باشه. اگه متن اصلی تگ HTML نداره (مثلاً یه متن ساده است)، خروجی هم باید بدون تگ HTML باشه.\n"
 
-  
     f"11. Placeholder های تصویر (مثل ##IMG_PLACEHOLDER_...##) رو دقیقاً همون‌طور که هستن نگه دار و تغییر نده.\n"
     f"12. لینک‌ها (مثل آدرس‌های داخل href در تگ <a>) و متن‌های خاص مثل نام کاربری‌ها (مثل @Steph_iscrypto) یا تاریخ‌ها (مثل May 1, 2025) رو بازنویسی نکن و همون‌طور که هستن نگه دار.\n\n"
 
-# ... (بخش اولیه پرامپت شامل دستورالعمل خلاصه و قوانین مهم ۱ تا ۱۲ باقی می‌ماند) ...
-
-    # ---- دستورالعمل‌های جدید برای افزایش جذابیت و تحلیل عمیق ----
     f"**دستورالعمل‌های کلیدی برای بازنویسی پیشرفته، ایجاد ارزش افزوده و تحلیل عمیق (علاوه بر قوانین بالا که باید همچنان رعایت شوند):**\n"
     f"الف. **تحلیل عمیق‌تر و فراتر از بازنویسی ساده:** به بازنویسی صرف متن اصلی اکتفا نکن. تلاش کن با افزودن تحلیل‌های کاربردی، تفسیرهای روشنگر و دیدگاه‌های جدید (در صورت امکان و مرتبط بودن)، به متن ارزش قابل توجهی اضافه کنی. به خواننده کمک کن تا اهمیت واقعی موضوع و پیامدهای کوتاه‌مدت و بلندمدت احتمالی آن را به خوبی درک کند. به وضوح توضیح بده که 'چرا این موضوع برای فعالان حوزه کریپتو مهم است؟' یا 'این تحول چه تاثیری می‌تواند بر بازار داشته باشد؟'.\n"
     f"ب. **ایجاد جذابیت در متن و جایگزینی عناوین داخلی:**\n"
@@ -225,17 +218,8 @@ def translate_with_gemini(text, target_lang="fa"):
     f"د. **افزودن نکات کلیدی، جمع‌بندی تحلیلی یا راهکارهای عملی (در صورت امکان):** می‌توانی در انتهای بخش‌های مهم یا در پایان کل مطلب، یک جمع‌بندی کوتاه و مفید از نکات کلیدی تحلیلی، 'درس‌های آموخته شده' یا حتی راهکارهای عملی قابل بررسی (با تاکید بر اینکه مشاوره مالی نیست) برای خواننده ارائه دهی تا مطلب کاربردی‌تر شود.\n"
     f"ه. **طرح پرسش‌های تامل‌برانگیز و دعوت به تفکر:** برای درگیر کردن بیشتر خواننده و تشویق او به تفکر عمیق‌تر، می‌توانی در بخش‌هایی از متن یا در انتها، پرسش‌هایی مرتبط با موضوع و آینده آن مطرح کنی (مثلاً: 'آیا این روند ادامه خواهد یافت؟ نظر شما چیست؟'). این به بخش تحریک به نظرسنجی (قانون ۷) نیز کمک می‌کند.\n"
     f"و. **ایجاد ارتباط با روندهای گسترده‌تر و ارائه تصویر بزرگتر:** خبر یا تحلیل مورد نظر را به روندهای کلی‌تر و مهم‌تر در بازار ارزهای دیجیتال، اقتصاد کلان یا فناوری بلاکچین مرتبط ساز. این کار به خواننده کمک می‌کند تا تصویر بزرگتری از اهمیت و جایگاه موضوع به دست آورد.\n"
-    # ---- پایان دستورالعمل‌های جدید ----
-
-    # این خط باید در انتهای پرامپت شما باشد:
     f"\nمتن انگلیسی برای بازنویسی:\n{text}"
-         
     )
-
-
-
-
-    
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -270,7 +254,6 @@ def translate_with_gemini(text, target_lang="fa"):
             sys.stdout.flush()
             result = response.json()
 
-            # ... (بقیه بررسی‌های پاسخ Gemini مانند قبل) ...
             if not result or "candidates" not in result or not result["candidates"]:
                  feedback = result.get("promptFeedback", {})
                  block_reason = feedback.get("blockReason")
@@ -347,10 +330,6 @@ def translate_with_gemini(text, target_lang="fa"):
     sys.stdout.flush()
     raise ValueError("ترجمه با Gemini پس از تمام تلاش‌ها ناموفق بود.")
 
-
-# --- بقیه توابع (remove_newsbtc_links, replace_twimg_with_base64, crawl_captions, add_captions_to_images) ---
-# این توابع تقریباً بدون تغییر باقی می‌مانند، فقط لاگ‌ها حفظ می‌شوند.
-# (برای اختصار از تکرار کد کامل آنها خودداری می شود، فرض بر این است که از نسخه قبلی استفاده می شود)
 # --- تابع حذف لینک‌های newsbtc ---
 def remove_newsbtc_links(text):
     if not text: return ""
@@ -362,10 +341,11 @@ def remove_newsbtc_links(text):
     sys.stdout.flush()
     return cleaned
 
-# --- تابع جایگزینی URLهای twimg.com با Base64 ---
-def replace_twimg_with_base64(content):
-    if not content: return ""
-    print(">>> شروع بررسی و تبدیل عکس‌های twimg.com به Base64...")
+# --- تابع جایگزینی URLهای تصاویر فیلترشده با Base64 ---
+def replace_filtered_images_with_base64(content):
+    if not content:
+        return ""
+    print(">>> شروع بررسی و تبدیل عکس‌های فیلترشده (twimg.com و i0.wp.com) به Base64...")
     sys.stdout.flush()
     soup = BeautifulSoup(content, "html.parser")
     images = soup.find_all("img")
@@ -373,15 +353,18 @@ def replace_twimg_with_base64(content):
     sys.stdout.flush()
     modified = False
     processed_count = 0
-    twimg_count = 0
+    filtered_count = 0
+    filtered_domains = ["twimg.com", "i0.wp.com"]  # لیست دامنه‌های فیلترشده
     for i, img in enumerate(images):
         src = img.get("src", "")
-        if "twimg.com" in src:
-            twimg_count += 1
-            print(f"--- عکس {i+1} از twimg.com است. شروع دانلود و تبدیل...")
+        if any(domain in src for domain in filtered_domains):
+            filtered_count += 1
+            print(f"--- عکس {i+1} از {src} (دامنه فیلترشده) است. شروع دانلود و تبدیل...")
             sys.stdout.flush()
             try:
-                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
                 response = requests.get(src, stream=True, timeout=REQUEST_TIMEOUT, headers=headers)
                 response.raise_for_status()
                 content_type = response.headers.get('content-type', '').split(';')[0].strip()
@@ -389,7 +372,13 @@ def replace_twimg_with_base64(content):
                     parsed_url = urlparse(src)
                     path = parsed_url.path
                     ext = os.path.splitext(path)[1].lower()
-                    mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'}
+                    mime_map = {
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.png': 'image/png',
+                        '.gif': 'image/gif',
+                        '.webp': 'image/webp'
+                    }
                     content_type = mime_map.get(ext, 'image/jpeg')
 
                 image_content = response.content
@@ -398,7 +387,7 @@ def replace_twimg_with_base64(content):
                 data_uri = f"data:{content_type};base64,{base64_string}"
                 img['src'] = data_uri
                 if not img.get('alt'):
-                    img['alt'] = "تصویر جایگزین شده از توییتر"
+                    img['alt'] = "تصویر جایگزین شده از منبع فیلترشده"
                 print(f"---   عکس {i+1} با موفقیت به Base64 تبدیل و جایگزین شد.")
                 sys.stdout.flush()
                 modified = True
@@ -413,7 +402,7 @@ def replace_twimg_with_base64(content):
                 print(f"!!!   خطای غیرمنتظره هنگام پردازش عکس {i+1} ({src}): {e}")
                 sys.stdout.flush()
 
-    print(f"<<< بررسی عکس‌های twimg.com تمام شد. {processed_count}/{twimg_count} عکس با موفقیت تبدیل شد.")
+    print(f"<<< بررسی عکس‌های فیلترشده تمام شد. {processed_count}/{filtered_count} عکس با موفقیت تبدیل شد.")
     sys.stdout.flush()
     return str(soup) if modified else content
 
@@ -606,7 +595,6 @@ def add_captions_to_images(content, original_captions_with_images):
     sys.stdout.flush()
     return str(soup)
 
-
 # --- شروع اسکریپت اصلی ---
 print("\n" + "="*50)
 print(">>> شروع پردازش فید RSS و ارسال به بلاگر...")
@@ -615,7 +603,6 @@ sys.stdout.flush()
 
 # 1. دریافت فید RSS
 print("\n>>> مرحله ۱: دریافت و تجزیه فید RSS...")
-# ... (کد مانند قبل) ...
 sys.stdout.flush()
 try:
     print(f"--- در حال دریافت فید از: {RSS_FEED_URL}")
@@ -646,7 +633,6 @@ sys.stdout.flush()
 
 # 2. کرال کردن کپشن‌ها
 print("\n>>> مرحله ۲: کرال کردن کپشن‌ها از لینک پست اصلی...")
-# ... (کد مانند قبل) ...
 sys.stdout.flush()
 post_link = getattr(latest_post, 'link', None)
 original_captions_with_images = []
@@ -664,7 +650,6 @@ sys.stdout.flush()
 title = latest_post.title
 translated_title = title  # مقدار اولیه در صورت بروز خطا
 try:
-    # استفاده از تابع جدید برای ترجمه عنوان
     translated_title_text = translate_title_with_gemini(title)  # دریافت متن خالص ترجمه شده
     translated_title = translated_title_text.splitlines()[0]  # اطمینان از تک خطی بودن
     translated_title = translated_title.replace("**", "").replace("`", "")  # پاکسازی‌های احتمالی
@@ -680,7 +665,6 @@ sys.stdout.flush()
 
 # 4. پردازش تصویر بندانگشتی (Thumbnail)
 print("\n>>> مرحله ۴: پردازش تصویر بندانگشتی...")
-# ... (کد مانند قبل، از replace_twimg_with_base64 استفاده می‌کند) ...
 sys.stdout.flush()
 thumbnail_html = ""
 thumbnail_processed = False
@@ -692,19 +676,18 @@ try:
             sys.stdout.flush()
             temp_img_tag = f'<img src="{thumbnail_url}" alt="{translated_title}">'
             final_src = thumbnail_url # Default to original URL
-            if "twimg.com" in thumbnail_url:
-                print("--- تصویر بندانگشتی از twimg.com است، تبدیل به Base64...")
+            if any(domain in thumbnail_url for domain in ["twimg.com", "i0.wp.com"]):
+                print("--- تصویر بندانگشتی از دامنه فیلترشده است، تبدیل به Base64...")
                 sys.stdout.flush()
-                # Use the base64 function directly here as well
-                converted_soup = BeautifulSoup(replace_twimg_with_base64(temp_img_tag), "html.parser")
+                converted_soup = BeautifulSoup(replace_filtered_images_with_base64(temp_img_tag), "html.parser")
                 img_tag_after_conversion = converted_soup.find("img")
                 if img_tag_after_conversion and img_tag_after_conversion.get("src", "").startswith("data:"):
-                     final_src = img_tag_after_conversion["src"]
-                     print("--- تصویر بندانگشتی twimg با موفقیت به Base64 تبدیل شد.")
-                     sys.stdout.flush()
+                    final_src = img_tag_after_conversion["src"]
+                    print("--- تصویر بندانگشتی با موفقیت به Base64 تبدیل شد.")
+                    sys.stdout.flush()
                 else:
-                     print("--- هشدار: تبدیل تصویر بندانگشتی twimg ناموفق بود. از URL اصلی استفاده می‌شود.")
-                     sys.stdout.flush()
+                    print("--- هشدار: تبدیل تصویر بندانگشتی ناموفق بود. از URL اصلی استفاده می‌شود.")
+                    sys.stdout.flush()
 
             thumbnail_html = f'<div style="text-align:center; margin-bottom: 15px;"><img src="{final_src}" alt="{translated_title}" style="max-width:100%; height:auto; display:block; margin-left:auto; margin-right:auto; border-radius: 5px;"></div>'
             thumbnail_processed = True
@@ -722,7 +705,6 @@ if thumbnail_processed: print("<<< مرحله ۴ کامل شد.")
 else: print("<<< مرحله ۴ رد شد.")
 sys.stdout.flush()
 
-
 # 5. پردازش محتوای اصلی (با Placeholder)
 print("\n>>> مرحله ۵: پردازش محتوای اصلی...")
 sys.stdout.flush()
@@ -732,7 +714,6 @@ placeholder_map_global = {} # برای استفاده در حالت خطا
 
 try:
     content_source = ""
-    # ... (کد دریافت content_source مانند قبل) ...
     if 'content' in latest_post and latest_post.content:
         if isinstance(latest_post.content, list) and len(latest_post.content) > 0 and 'value' in latest_post.content[0]:
             content_source = latest_post.content[0]['value']
@@ -752,14 +733,14 @@ try:
         print("--- پاکسازی اولیه کامل شد.")
         sys.stdout.flush()
 
-        # 5.2 تبدیل عکس‌های twimg.com به Base64
-        print("--- 5.2 تبدیل عکس‌های twimg.com در محتوای اصلی...")
+        # 5.2 تبدیل عکس‌های فیلترشده به Base64
+        print("--- 5.2 تبدیل عکس‌های فیلترشده در محتوای اصلی...")
         sys.stdout.flush()
-        content_with_base64_images = replace_twimg_with_base64(content_cleaned)
-        print("--- تبدیل عکس‌های twimg کامل شد.")
+        content_with_base64_images = replace_filtered_images_with_base64(content_cleaned)
+        print("--- تبدیل عکس‌های فیلترشده کامل شد.")
         sys.stdout.flush()
 
-        # 5.3 **جایگزینی همه عکس‌ها با Placeholder**
+        # 5.3 جایگزینی همه عکس‌ها با Placeholder
         print("--- 5.3 جایگزینی همه عکس‌ها با Placeholder قبل از ترجمه...")
         sys.stdout.flush()
         content_with_placeholders, placeholder_map_global = replace_images_with_placeholders(content_with_base64_images)
@@ -773,7 +754,7 @@ try:
         print("--- ترجمه محتوای حاوی Placeholder کامل شد.")
         sys.stdout.flush()
 
-        # 5.5 **بازگرداندن عکس‌ها از Placeholder**
+        # 5.5 بازگرداندن عکس‌ها از Placeholder
         print("--- 5.5 بازگرداندن عکس‌ها از Placeholder در متن ترجمه شده...")
         sys.stdout.flush()
         translated_content_restored = restore_images_from_placeholders(translated_content_with_placeholders, placeholder_map_global)
@@ -806,13 +787,11 @@ try:
         final_content_for_post = f'<div style="line-height: 1.7;">{content_html}</div>' # Wrapper بدون direction
 
     elif original_captions_with_images:
-         # ... (مانند قبل) ...
         print("--- هشدار: محتوای اصلی یافت نشد، فقط از کپشن‌ها استفاده می‌شود.")
         sys.stdout.flush()
         captions_html = "".join([item["caption"] for item in original_captions_with_images])
         final_content_for_post = f'<div style="text-align: center; font-size: small;">{captions_html}</div>'
     else:
-        # ... (مانند قبل) ...
         print("!!! محتوایی برای پردازش یافت نشد.")
         sys.stdout.flush()
         final_content_for_post = "<p style='text-align: center;'>محتوایی برای نمایش یافت نشد.</p>"
@@ -823,28 +802,23 @@ except Exception as e:
     print("Traceback:")
     traceback.print_exc()
     sys.stdout.flush()
-    # Fallback: نمایش محتوای اصلی انگلیسی، اما سعی کن عکس ها را از placeholder بازگردانی کنی
     if 'content_with_base64_images' in locals() and content_with_base64_images:
          print("--- استفاده از محتوای انگلیسی پردازش شده به عنوان جایگزین...")
          sys.stdout.flush()
-         # حتی در حالت خطا، سعی کن کپشن ها را اضافه کنی
          try:
               content_fallback_with_captions = add_captions_to_images(content_with_base64_images, original_captions_with_images)
               final_content_for_post = f"<p style='color: red;'><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) با کپشن‌ها در زیر نمایش داده می‌شود.]</i></p><div style='text-align:left; direction:ltr;'>{content_fallback_with_captions}</div>"
          except Exception as fallback_e:
               print(f"!!! خطا در افزودن کپشن به محتوای جایگزین: {fallback_e}")
               final_content_for_post = f"<p style='color: red;'><i>[خطا در ترجمه محتوا رخ داد ({e}). محتوای اصلی (انگلیسی) در زیر نمایش داده می‌شود.]</i></p><div style='text-align:left; direction:ltr;'>{content_with_base64_images}</div>"
-
     else:
          final_content_for_post = f"<p style='text-align: center; color: red;'>خطای جدی در پردازش محتوا: {e}</p>"
 
 print("<<< مرحله ۵ کامل شد.")
 sys.stdout.flush()
 
-
 # 6. ساختار نهایی پست
 print("\n>>> مرحله ۶: آماده‌سازی ساختار نهایی پست HTML...")
-# ... (کد مانند قبل) ...
 sys.stdout.flush()
 full_content_parts = []
 if thumbnail_html:
@@ -860,7 +834,6 @@ sys.stdout.flush()
 
 # 7. ارسال به بلاگر
 print("\n>>> مرحله ۷: ارسال پست به بلاگر...")
-# ... (کد مانند قبل با لاگ و مدیریت خطا) ...
 sys.stdout.flush()
 try:
     post_body = {
@@ -868,7 +841,6 @@ try:
         "blog": {"id": BLOG_ID},
         "title": translated_title,
         "content": full_content
-        # "labels": ["خبر", "ارز دیجیتال", "ترجمه"]
     }
     print(f"--- در حال فراخوانی service.posts().insert برای بلاگ {BLOG_ID}...")
     sys.stdout.flush()
@@ -886,7 +858,6 @@ try:
     sys.stdout.flush()
 
 except HttpError as e:
-     # ... (مدیریت خطای HttpError مانند قبل) ...
      try:
           error_content = json.loads(e.content.decode('utf-8'))
           error_details = error_content.get('error', {})
@@ -905,13 +876,11 @@ except HttpError as e:
           sys.stdout.flush()
 
 except Exception as e:
-    # ... (مدیریت خطای عمومی مانند قبل) ...
     print(f"!!! خطای پیش‌بینی نشده در ارسال پست به بلاگر: {type(e).__name__} - {e}")
     import traceback
     print("Traceback:")
     traceback.print_exc()
     sys.stdout.flush()
-
 
 print("\n" + "="*50)
 print(">>> اسکریپت به پایان رسید.")
