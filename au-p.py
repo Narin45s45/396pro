@@ -863,7 +863,7 @@ sys.stdout.flush()
 try:
     # دریافت شماره پست بعدی
     post_number = get_next_post_number(service, BLOG_ID)
-    custom_permalink = f"crypto-{post_number}"  # این خط را می‌توانید تغییر دهید، مثلاً:
+    custom_permalink = f"crypto-{post_number}"  # می‌شود /p/crypto-123.html
     # custom_permalink = "crypto-123"  # برای لینک ثابت
     # یا
     # custom_permalink = f"news-{post_number}"  # برای فرمت دیگر
