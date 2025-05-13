@@ -849,12 +849,13 @@ import time
 import json
 from googleapiclient.errors import HttpError
 
+
 # تابع برای تولید شماره تصادفی 10 رقمی و چک کردن منحصر به فرد بودن
 def generate_unique_random_permalink(service, blog_id):
     max_attempts = 10  # حداکثر تلاش برای تولید شماره غیرتکراری
     for _ in range(max_attempts):
         random_number = random.randint(1000000000, 9999999999)  # شماره 10 رقمی
-        permalink = f"crypto-{random_number}"
+        permalink = f"crypto-{random_number}"  # فرمت اصلی
         try:
             posts = service.posts().list(blogId=blog_id, maxResults=100).execute()
             existing_permalinks = [post.get("customPermalink", "") for post in posts.get("items", [])]
@@ -885,14 +886,15 @@ try:
         "labels": ["crypto"],
         "customPermalink": custom_permalink
     }
-    print(f"--- در حال فراخوانی service.posts().insert برای بلاگ {BLOG_ID} با URL: {custom_permalink}...")
-    print(f"--- درخواست ارسالی: {json.dumps(post_body, indent=2, ensure_ascii=False)}")
+    print(f"--- درخواست ارسالی به API (ارسال اولیه): {json.dumps(post_body, indent=2, ensure_ascii=False)}")
     sys.stdout.flush()
     start_time = time.time()
     request = service.posts().insert(
         blogId=BLOG_ID,
         body=post_body,
-        isDraft=False
+        isDraft=False,
+        fetchBody=True,
+        fetchImages=True
     )
     response = request.execute()
     end_time = time.time()
@@ -900,8 +902,59 @@ try:
     sys.stdout.flush()
     print(f"<<< پست با موفقیت ارسال شد! پاسخ کامل API: {json.dumps(response, indent=2, ensure_ascii=False)}")
     sys.stdout.flush()
-    print(f"<<< URL نهایی: {response.get('url', 'نامشخص')}")
+    print(f"<<< URL اولیه: {response.get('url', 'نامشخص')}")
     sys.stdout.flush()
+
+    # چک کردن اگه customPermalink اعمال نشده باشه
+    post_url = response.get("url", "")
+    post_id = response.get("id")
+    if custom_permalink not in post_url:
+        print(f"!!! customPermalink ({custom_permalink}) اعمال نشد. تلاش برای ویرایش پست...")
+        sys.stdout.flush()
+        # درخواست ویرایش پست
+        update_body = {
+            "kind": "blogger#post",
+            "id": post_id,
+            "blog": {"id": BLOG_ID},
+            "title": translated_title,
+            "content": full_content,
+            "labels": ["crypto"],
+            "customPermalink": custom_permalink
+        }
+        update_request = service.posts().update(
+            blogId=BLOG_ID,
+            postId=post_id,
+            body=update_body,
+            fetchBody=True,
+            fetchImages=True
+        )
+        update_response = update_request.execute()
+        print(f"--- پست ویرایش شد! پاسخ کامل API (بعد از ویرایش): {json.dumps(update_response, indent=2, ensure_ascii=False)}")
+        sys.stdout.flush()
+        print(f"<<< URL بعد از ویرایش: {update_response.get('url', 'نامشخص')}")
+        sys.stdout.flush()
+
+        # اگه بازم اعمال نشد, با فرمت ساده‌تر امتحان می‌کنیم
+        updated_url = update_response.get("url", "")
+        if custom_permalink not in updated_url:
+            print(f"!!! customPermalink ({custom_permalink}) بعد از ویرایش هم اعمال نشد. تلاش با فرمت ساده‌تر (فقط شماره)...")
+            sys.stdout.flush()
+            random_number = random.randint(1000000000, 9999999999)
+            simple_permalink = f"{random_number}"  # فقط شماره
+            update_body["customPermalink"] = simple_permalink
+            update_request = service.posts().update(
+                blogId=BLOG_ID,
+                postId=post_id,
+                body=update_body,
+                fetchBody=True,
+                fetchImages=True
+            )
+            final_response = update_request.execute()
+            print(f"--- پست با فرمت ساده‌تر ویرایش شد! پاسخ کامل API: {json.dumps(final_response, indent=2, ensure_ascii=False)}")
+            sys.stdout.flush()
+            print(f"<<< URL نهایی: {final_response.get('url', 'نامشخص')}")
+            sys.stdout.flush()
+
 except HttpError as e:
     try:
         error_content = json.loads(e.content.decode('utf-8'))
@@ -913,17 +966,20 @@ except HttpError as e:
         sys.stdout.flush()
         if status_code == 400 and "customPermalink" in error_message:
             print(f"!!! خطای 400: ساختار customPermalink ({custom_permalink}) نامعتبر است.")
-            print("--- تلاش مجدد بدون customPermalink...")
+            print("--- تلاش با فرمت ساده‌تر (فقط شماره)...")
             sys.stdout.flush()
-            post_body.pop("customPermalink")
-            print(f"--- درخواست جدید بدون customPermalink: {json.dumps(post_body, indent=2, ensure_ascii=False)}")
+            random_number = random.randint(1000000000, 9999999999)
+            post_body["customPermalink"] = f"{random_number}"  # فقط شماره
+            print(f"--- درخواست جدید: {json.dumps(post_body, indent=2, ensure_ascii=False)}")
             request = service.posts().insert(
                 blogId=BLOG_ID,
                 body=post_body,
-                isDraft=False
+                isDraft=False,
+                fetchBody=True,
+                fetchImages=True
             )
             response = request.execute()
-            print(f"--- پست با URL پیش‌فرض ارسال شد! پاسخ کامل API: {json.dumps(response, indent=2, ensure_ascii=False)}")
+            print(f"--- پست با فرمت ساده‌تر ارسال شد! پاسخ کامل API: {json.dumps(response, indent=2, ensure_ascii=False)}")
             sys.stdout.flush()
             print(f"<<< URL نهایی: {response.get('url', 'نامشخص')}")
             sys.stdout.flush()
