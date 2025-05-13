@@ -863,7 +863,7 @@ sys.stdout.flush()
 try:
     # دریافت شماره پست بعدی
     post_number = get_next_post_number(service, BLOG_ID)
-    custom_permalink = f"crypto-{post_number}"  # به جای crypto/123 از crypto-123 برای جلوگیری از خطای 400
+    custom_permalink = f"news-{post_number}"  # به جای crypto-123، مثلاً news-1، news-2
 
     post_body = {
         "kind": "blogger#post",
