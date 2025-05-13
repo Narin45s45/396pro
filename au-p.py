@@ -846,88 +846,49 @@ sys.stdout.flush()
 
 
 
-import random
-import time
-import json
-from googleapiclient.errors import HttpError
-
-# تابع برای تولید شماره تصادفی 10 رقمی و چک کردن منحصر به فرد بودن
-def generate_unique_random_permalink(service, blog_id):
-    max_attempts = 10  # حداکثر تلاش برای تولید شماره غیرتکراری
-    for _ in range(max_attempts):
-        random_number = random.randint(1000000000, 9999999999)  # شماره 10 رقمی
-        permalink = f"crypto-{random_number}"
-        try:
-            posts = service.posts().list(blogId=blog_id, maxResults=100).execute()
-            existing_permalinks = [post.get("customPermalink", "") for post in posts.get("items", [])]
-            if permalink not in existing_permalinks:
-                return permalink
-        except Exception as e:
-            print(f"!!! خطا در چک کردن permalink: {e}")
-            sys.stdout.flush()
-            break
-    random_number = random.randint(1000000000, 9999999999)
-    timestamp = int(time.time())
-    return f"crypto-{random_number}-{timestamp}"
-
-# --- مرحله ۷: ارسال پست به بلاگر ---
+# 7. ارسال به بلاگر
 print("\n>>> مرحله ۷: ارسال پست به بلاگر...")
 sys.stdout.flush()
 try:
-    custom_permalink = generate_unique_random_permalink(service, BLOG_ID)
-    print(f"--- permalink تولیدشده (برای تنظیم دستی): {custom_permalink}")
-    sys.stdout.flush()
-
-    # ارسال اولیه بدون customPermalink
     post_body = {
         "kind": "blogger#post",
         "blog": {"id": BLOG_ID},
         "title": translated_title,
-        "content": full_content,
-        "labels": ["crypto"]
+        "content": full_content
     }
-    print(f"--- درخواست ارسالی به API (ارسال اولیه بدون customPermalink): {json.dumps(post_body, indent=2, ensure_ascii=False)}")
+    print(f"--- در حال فراخوانی service.posts().insert برای بلاگ {BLOG_ID}...")
     sys.stdout.flush()
     start_time = time.time()
     request = service.posts().insert(
         blogId=BLOG_ID,
         body=post_body,
-        isDraft=False,
-        fetchBody=True,
-        fetchImages=True
+        isDraft=False
     )
     response = request.execute()
     end_time = time.time()
     print(f"--- فراخوانی insert کامل شد (در زمان {end_time - start_time:.2f} ثانیه).")
     sys.stdout.flush()
-    print(f"<<< پست با موفقیت ارسال شد! پاسخ کامل API: {json.dumps(response, indent=2, ensure_ascii=False)}")
-    sys.stdout.flush()
-    post_url = response.get("url", "نامشخص")
-    post_id = response.get("id")
-    print(f"<<< URL اولیه: {post_url}")
-    sys.stdout.flush()
-
-    # راهنمایی برای تنظیم دستی customPermalink
-    print(f"!!! لطفاً به صورت دستی customPermalink را تنظیم کنید:")
-    print(f"1. به داشبورد بلاگر بروید (https://www.blogger.com).")
-    print(f"2. پست با ID {post_id} را پیدا کنید (URL فعلی: {post_url})")
-    print(f"3. در بخش Post settings > Permalink, گزینه Custom URL را انتخاب کنید.")
-    print(f"4. مقدار زیر را وارد کنید: {custom_permalink}")
-    print(f"5. پست را ذخیره کنید تا URL به https://www.arzitals.ir/2025/05/{custom_permalink}.html تغییر کند.")
+    print("<<< پست با موفقیت ارسال شد! URL:", response.get("url", "نامشخص"))
     sys.stdout.flush()
 
 except HttpError as e:
-    try:
-        error_content = json.loads(e.content.decode('utf-8'))
-        error_details = error_content.get('error', {})
-        status_code = error_details.get('code', e.resp.status)
-        error_message = error_details.get('message', str(e))
-        print(f"!!! خطا در API بلاگر (کد {status_code}): {error_message}")
-        print(f"!!! پاسخ کامل خطا: {json.dumps(error_content, indent=2, ensure_ascii=False)}")
-        sys.stdout.flush()
-    except (json.JSONDecodeError, AttributeError):
-        print(f"!!! خطا در API بلاگر (وضعیت {e.resp.status}): {e}")
-        sys.stdout.flush()
+     try:
+          error_content = json.loads(e.content.decode('utf-8'))
+          error_details = error_content.get('error', {})
+          status_code = error_details.get('code', e.resp.status)
+          error_message = error_details.get('message', str(e))
+          print(f"!!! خطا در API بلاگر (کد {status_code}): {error_message}")
+          sys.stdout.flush()
+          if status_code == 401:
+              print("!!! خطای 401 (Unauthorized): اعتبارنامه (CREDENTIALS) نامعتبر یا منقضی شده است.")
+              sys.stdout.flush()
+          elif status_code == 403:
+               print("!!! خطای 403 (Forbidden): دسترسی به بلاگ یا انجام عملیات مجاز نیست.")
+               sys.stdout.flush()
+     except (json.JSONDecodeError, AttributeError):
+          print(f"!!! خطا در API بلاگر (وضعیت {e.resp.status}): {e}")
+          sys.stdout.flush()
+
 except Exception as e:
     print(f"!!! خطای پیش‌بینی نشده در ارسال پست به بلاگر: {type(e).__name__} - {e}")
     import traceback
