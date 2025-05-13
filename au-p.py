@@ -863,13 +863,16 @@ sys.stdout.flush()
 try:
     # دریافت شماره پست بعدی
     post_number = get_next_post_number(service, BLOG_ID)
-    custom_permalink = translated_title.replace(" ", "-").lower()[:50]  # مثلاً: بیت-کوین-به-رکورد-جدید
+    custom_permalink = f"crypto-{post_number}"  # این خط را می‌توانید تغییر دهید، مثلاً:
+    # custom_permalink = "crypto-123"  # برای لینک ثابت
+    # یا
+    # custom_permalink = f"news-{post_number}"  # برای فرمت دیگر
 
     post_body = {
         "kind": "blogger#post",
         "blog": {"id": BLOG_ID},
-        "title": translated_title,
-        "content": full_content,
+        "title": translated_title,  # از عنوان ترجمه‌شده
+        "content": full_content,    # از محتوای تولیدشده
         "labels": ["crypto"],
         "customPermalink": custom_permalink
     }
@@ -917,6 +920,7 @@ except Exception as e:
     print("Traceback:")
     traceback.print_exc()
     sys.stdout.flush()
+
 
 print("\n" + "="*50)
 print(">>> اسکریپت به پایان رسید.")
