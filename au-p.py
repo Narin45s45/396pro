@@ -119,7 +119,7 @@ def translate_title_with_gemini(text_title, target_lang="fa"):
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.3, "topP": 0.9, "topK": 50}  # Temperature ممکن است برای عنوان کمی بالاتر باشد برای خلاقیت بیشتر اگر نیاز بود
+        "generationConfig": {"temperature": 0.4, "topP": 0.9, "topK": 50}  # Temperature ممکن است برای عنوان کمی بالاتر باشد برای خلاقیت بیشتر اگر نیاز بود
     }
     max_retries = 2
     retry_delay = 10  # ممکن است برای عنوان زمان کمتری نیاز باشد
@@ -219,7 +219,7 @@ def translate_with_gemini(text, target_lang="fa"):
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.3, "topP": 0.9, "topK": 50}
+        "generationConfig": {"temperature": 0.4, "topP": 0.9, "topK": 50}
     }
     max_retries = 2
     retry_delay = 15
