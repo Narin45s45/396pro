@@ -875,7 +875,7 @@ print("\n>>> مرحله ۷: ارسال پست به بلاگر...")
 sys.stdout.flush()
 try:
     custom_permalink = generate_unique_random_permalink(service, BLOG_ID)
-    print(f"--- permalink تولیدشده: {custom_permalink}")
+    print(f"--- permalink تولیدشده (برای تنظیم دستی): {custom_permalink}")
     sys.stdout.flush()
 
     # ارسال اولیه بدون customPermalink
@@ -907,51 +907,14 @@ try:
     print(f"<<< URL اولیه: {post_url}")
     sys.stdout.flush()
 
-    # تلاش برای تنظیم customPermalink با patch
-    print(f"--- تلاش برای تنظیم customPermalink با درخواست patch...")
+    # راهنمایی برای تنظیم دستی customPermalink
+    print(f"!!! لطفاً به صورت دستی customPermalink را تنظیم کنید:")
+    print(f"1. به داشبورد بلاگر بروید (https://www.blogger.com).")
+    print(f"2. پست با ID {post_id} را پیدا کنید (URL فعلی: {post_url})")
+    print(f"3. در بخش Post settings > Permalink, گزینه Custom URL را انتخاب کنید.")
+    print(f"4. مقدار زیر را وارد کنید: {custom_permalink}")
+    print(f"5. پست را ذخیره کنید تا URL به https://www.arzitals.ir/2025/05/{custom_permalink}.html تغییر کند.")
     sys.stdout.flush()
-    patch_body = {
-        "customPermalink": custom_permalink
-    }
-    print(f"--- درخواست patch: {json.dumps(patch_body, indent=2, ensure_ascii=False)}")
-    sys.stdout.flush()
-    patch_request = service.posts().patch(
-        blogId=BLOG_ID,
-        postId=post_id,
-        body=patch_body,
-        fetchBody=True,
-        fetchImages=True
-    )
-    patch_response = patch_request.execute()
-    print(f"--- پست با patch ویرایش شد! پاسخ کامل API: {json.dumps(patch_response, indent=2, ensure_ascii=False)}")
-    sys.stdout.flush()
-    final_url = patch_response.get("url", "نامشخص")
-    print(f"<<< URL نهایی: {final_url}")
-    sys.stdout.flush()
-
-    # چک کردن اگه patch کار نکرد
-    if custom_permalink not in final_url:
-        print(f"!!! customPermalink ({custom_permalink}) با patch اعمال نشد. تلاش با فرمت ساده‌تر (فقط شماره)...")
-        sys.stdout.flush()
-        random_number = random.randint(1000000000, 9999999999)
-        simple_permalink = f"{random_number}"
-        patch_body = {
-            "customPermalink": simple_permalink
-        }
-        print(f"--- درخواست patch با فرمت ساده‌تر: {json.dumps(patch_body, indent=2, ensure_ascii=False)}")
-        sys.stdout.flush()
-        patch_request = service.posts().patch(
-            blogId=BLOG_ID,
-            postId=post_id,
-            body=patch_body,
-            fetchBody=True,
-            fetchImages=True
-        )
-        final_response = patch_request.execute()
-        print(f"--- پست با فرمت ساده‌تر ویرایش شد! پاسخ کامل API: {json.dumps(final_response, indent=2, ensure_ascii=False)}")
-        sys.stdout.flush()
-        print(f"<<< URL نهایی: {final_response.get('url', 'نامشخص')}")
-        sys.stdout.flush()
 
 except HttpError as e:
     try:
