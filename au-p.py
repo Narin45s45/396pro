@@ -17,27 +17,6 @@ import uuid # برای ساخت placeholder های منحصر به فرد
 
 
 
-def slugify_persian(text, unique_id_length=8):
-    text = str(text) # اطمینان از اینکه ورودی رشته است
-    # برای فارسی، حروف فارسی، اعداد و خط تیره را نگه می‌داریم
-    # کاراکترهای خاص را حذف و فاصله‌ها را با خط تیره جایگزین می‌کنیم
-    text = text.lower() # تبدیل به حروف کوچک (برای بخش‌های انگلیسی احتمالی)
-    text = re.sub(r'\s+', '-', text) # جایگزینی فاصله‌ها با خط تیره
-    # نگه داشتن حروف فارسی (محدوده یونیکد)، حروف انگلیسی، اعداد و خط تیره. حذف بقیه.
-    text = re.sub(r'[^\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFFa-z0-9-]', '', text)
-    text = re.sub(r'-+', '-', text) # جایگزینی چندین خط تیره پشت سر هم با یکی
-    text = text.strip('-') # حذف خط تیره از ابتدا و انتهای رشته
-
-    if not text: # اگر عنوان پس از پاکسازی خالی شد (مثلاً فقط شامل کاراکترهای خاص بوده)
-        slug_part = "post"
-    else:
-        slug_part = text
-
-    # اضافه کردن یک شناسه یونیک کوتاه برای جلوگیری از تداخل و شبیه شدن به "عدد_پست"
-    unique_part = str(uuid.uuid4().hex)[:unique_id_length]
-    return f"{slug_part}-{unique_part}"
-
-
 
 
 
@@ -861,35 +840,40 @@ full_content = "".join(full_content_parts)
 print("<<< مرحله ۶ کامل شد.")
 sys.stdout.flush()
 
-# 7. ارسال به بلاگر
+# --- تابع برای دریافت شماره پست بعدی ---
+def get_next_post_number(service, blog_id):
+    print(">>> دریافت تعداد پست‌های موجود برای تولید شماره جدید...")
+    sys.stdout.flush()
+    try:
+        request = service.posts().list(blogId=blog_id, maxResults=0)
+        response = request.execute()
+        total_posts = response.get("totalItems", 0)
+        next_number = total_posts + 1
+        print(f"--- تعداد پست‌های فعلی: {total_posts}. شماره پست بعدی: {next_number}")
+        sys.stdout.flush()
+        return next_number
+    except Exception as e:
+        print(f"!!! خطا در دریافت تعداد پست‌ها: {e}")
+        sys.stdout.flush()
+        return 1  # در صورت خطا، از 1 شروع کن
+
+# --- مرحله ۷: ارسال پست به بلاگر ---
 print("\n>>> مرحله ۷: ارسال پست به بلاگر...")
 sys.stdout.flush()
-
-
-# --- شروع بخش اضافه شده برای ساخت مسیر سفارشی ---
-# 'translated_title' باید در این مرحله در دسترس باشد
-if 'translated_title' not in locals() or not translated_title:
-    print("!!! هشدار: عنوان ترجمه شده برای ساخت مسیر سفارشی در دسترس نیست. از یک مسیر پیش‌فرض توسط بلاگر استفاده خواهد شد.")
-    custom_path = None # یا یک مقدار پیش‌فرض اگر لازم است
-else:
-    custom_post_identifier = slugify_persian(translated_title)
-    # ساختار مسیر مورد نظر: /crypto/شناسه_پست/
-    custom_path = f"/crypto/{custom_post_identifier}.html"
-    print(f"--- مسیر سفارشی پیشنهادی برای بلاگر: {custom_path}")
-    sys.stdout.flush()
-# --- پایان بخش اضافه شده ---
-
-
-
-
 try:
+    # دریافت شماره پست بعدی
+    post_number = get_next_post_number(service, BLOG_ID)
+    custom_permalink = f"crypto-{post_number}"  # به جای crypto/123 از crypto-123 برای جلوگیری از خطای 400
+
     post_body = {
         "kind": "blogger#post",
         "blog": {"id": BLOG_ID},
         "title": translated_title,
-        "content": full_content
+        "content": full_content,
+        "labels": ["crypto"],
+        "customPermalink": custom_permalink
     }
-    print(f"--- در حال فراخوانی service.posts().insert برای بلاگ {BLOG_ID}...")
+    print(f"--- در حال فراخوانی service.posts().insert برای بلاگ {BLOG_ID} با URL: {custom_permalink}...")
     sys.stdout.flush()
     start_time = time.time()
     request = service.posts().insert(
@@ -903,25 +887,30 @@ try:
     sys.stdout.flush()
     print("<<< پست با موفقیت ارسال شد! URL:", response.get("url", "نامشخص"))
     sys.stdout.flush()
-
 except HttpError as e:
-     try:
-          error_content = json.loads(e.content.decode('utf-8'))
-          error_details = error_content.get('error', {})
-          status_code = error_details.get('code', e.resp.status)
-          error_message = error_details.get('message', str(e))
-          print(f"!!! خطا در API بلاگر (کد {status_code}): {error_message}")
-          sys.stdout.flush()
-          if status_code == 401:
-              print("!!! خطای 401 (Unauthorized): اعتبارنامه (CREDENTIALS) نامعتبر یا منقضی شده است.")
-              sys.stdout.flush()
-          elif status_code == 403:
-               print("!!! خطای 403 (Forbidden): دسترسی به بلاگ یا انجام عملیات مجاز نیست.")
-               sys.stdout.flush()
-     except (json.JSONDecodeError, AttributeError):
-          print(f"!!! خطا در API بلاگر (وضعیت {e.resp.status}): {e}")
-          sys.stdout.flush()
-
+    try:
+        error_content = json.loads(e.content.decode('utf-8'))
+        error_details = error_content.get('error', {})
+        status_code = error_details.get('code', e.resp.status)
+        error_message = error_details.get('message', str(e))
+        print(f"!!! خطا در API بلاگر (کد {status_code}): {error_message}")
+        sys.stdout.flush()
+        if status_code == 400 and "customPermalink" in error_message:
+            print(f"!!! خطای 400: ساختار customPermalink ({custom_permalink}) نامعتبر است.")
+            print("--- تلاش مجدد بدون customPermalink...")
+            sys.stdout.flush()
+            post_body.pop("customPermalink")
+            request = service.posts().insert(
+                blogId=BLOG_ID,
+                body=post_body,
+                isDraft=False
+            )
+            response = request.execute()
+            print("--- پست با URL پیش‌فرض ارسال شد! URL:", response.get("url", "نامشخص"))
+            sys.stdout.flush()
+    except (json.JSONDecodeError, AttributeError):
+        print(f"!!! خطا در API بلاگر (وضعیت {e.resp.status}): {e}")
+        sys.stdout.flush()
 except Exception as e:
     print(f"!!! خطای پیش‌بینی نشده در ارسال پست به بلاگر: {type(e).__name__} - {e}")
     import traceback
