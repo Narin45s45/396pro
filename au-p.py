@@ -829,17 +829,44 @@ full_content = "".join(full_content_parts)
 print("<<< مرحله ۶ کامل شد.")
 sys.stdout.flush()
 
-# 7. ارسال به بلاگر
+
+# --- تابع برای دریافت شماره پست بعدی ---
+def get_next_post_number(service, blog_id):
+    print(">>> دریافت تعداد پست‌های موجود برای تولید شماره جدید...")
+    sys.stdout.flush()
+    try:
+        request = service.posts().list(blogId=blog_id, maxResults=0)
+        response = request.execute()
+        total_posts = response.get("totalItems", 0)
+        next_number = total_posts + 1
+        print(f"--- تعداد پست‌های فعلی: {total_posts}. شماره پست بعدی: {next_number}")
+        sys.stdout.flush()
+        return next_number
+    except Exception as e:
+        print(f"!!! خطا در دریافت تعداد پست‌ها: {e}")
+        sys.stdout.flush()
+        return 1  # در صورت خطا، از 1 شروع کن
+
+
+
+
+# --- مرحله ۷: ارسال پست به بلاگر ---
 print("\n>>> مرحله ۷: ارسال پست به بلاگر...")
 sys.stdout.flush()
 try:
+    # دریافت شماره پست بعدی
+    post_number = get_next_post_number(service, BLOG_ID)
+    custom_permalink = f"crypto/{post_number}"
+
     post_body = {
         "kind": "blogger#post",
         "blog": {"id": BLOG_ID},
         "title": translated_title,
-        "content": full_content
+        "content": full_content,
+        "labels": ["crypto"],  # اضافه کردن برچسب crypto
+        "customPermalink": custom_permalink  # تنظیم URL سفارشی
     }
-    print(f"--- در حال فراخوانی service.posts().insert برای بلاگ {BLOG_ID}...")
+    print(f"--- در حال فراخوانی service.posts().insert برای بلاگ {BLOG_ID} با URL: {custom_permalink}...")
     sys.stdout.flush()
     start_time = time.time()
     request = service.posts().insert(
@@ -855,22 +882,25 @@ try:
     sys.stdout.flush()
 
 except HttpError as e:
-     try:
-          error_content = json.loads(e.content.decode('utf-8'))
-          error_details = error_content.get('error', {})
-          status_code = error_details.get('code', e.resp.status)
-          error_message = error_details.get('message', str(e))
-          print(f"!!! خطا در API بلاگر (کد {status_code}): {error_message}")
-          sys.stdout.flush()
-          if status_code == 401:
-              print("!!! خطای 401 (Unauthorized): اعتبارنامه (CREDENTIALS) نامعتبر یا منقضی شده است.")
-              sys.stdout.flush()
-          elif status_code == 403:
-               print("!!! خطای 403 (Forbidden): دسترسی به بلاگ یا انجام عملیات مجاز نیست.")
-               sys.stdout.flush()
-     except (json.JSONDecodeError, AttributeError):
-          print(f"!!! خطا در API بلاگر (وضعیت {e.resp.status}): {e}")
-          sys.stdout.flush()
+    try:
+        error_content = json.loads(e.content.decode('utf-8'))
+        error_details = error_content.get('error', {})
+        status_code = error_details.get('code', e.resp.status)
+        error_message = error_details.get('message', str(e))
+        print(f"!!! خطا در API بلاگر (کد {status_code}): {error_message}")
+        sys.stdout.flush()
+        if status_code == 401:
+            print("!!! خطای 401 (Unauthorized): اعتبارنامه (CREDENTIALS) نامعتبر یا منقضی شده است.")
+            sys.stdout.flush()
+        elif status_code == 403:
+            print("!!! خطای 403 (Forbidden): دسترسی به بلاگ یا انجام عملیات مجاز نیست.")
+            sys.stdout.flush()
+        elif status_code == 400 and "customPermalink" in error_message:
+            print("!!! خطای 400: ساختار customPermalink نامعتبر است. بررسی تنظیمات وبلاگ.")
+            sys.stdout.flush()
+    except (json.JSONDecodeError, AttributeError):
+        print(f"!!! خطا در API بلاگر (وضعیت {e.resp.status}): {e}")
+        sys.stdout.flush()
 
 except Exception as e:
     print(f"!!! خطای پیش‌بینی نشده در ارسال پست به بلاگر: {type(e).__name__} - {e}")
