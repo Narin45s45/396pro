@@ -12,7 +12,7 @@ import base64
 from urllib.parse import urlparse
 import sys
 import uuid # برای ساخت placeholder های منحصر به فرد
-
+import random
 
 
 
