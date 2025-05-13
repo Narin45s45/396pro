@@ -878,6 +878,13 @@ try:
     # اضافه کردن مسیر سفارشی به بدنه درخواست اگر ایجاد شده باشد
     if custom_post_path:
         post_body["path"] = custom_post_path
+        
+
+
+# --- خط جدید برای چاپ محتوای post_body ---
+print(f"--- Post body being sent to Blogger: {json.dumps(post_body, indent=2, ensure_ascii=False)}")
+# --- پایان خط جدید ---
+
 
     print(f"--- در حال فراخوانی service.posts().insert برای بلاگ {BLOG_ID}...")
     # ... بقیه کد ارسال به بلاگر بدون تغییر باقی می‌ماند ...
