@@ -882,7 +882,7 @@ try:
 
 
 # --- خط جدید برای چاپ محتوای post_body ---
-print(f"--- Post body being sent to Blogger: {json.dumps(post_body, indent=2, ensure_ascii=False)}")
+    print(f"--- Post body being sent to Blogger: {json.dumps(post_body, indent=2, ensure_ascii=False)}")
 # --- پایان خط جدید ---
 
 
