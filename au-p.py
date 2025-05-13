@@ -886,6 +886,7 @@ try:
         "customPermalink": custom_permalink
     }
     print(f"--- در حال فراخوانی service.posts().insert برای بلاگ {BLOG_ID} با URL: {custom_permalink}...")
+    print(f"--- درخواست ارسالی: {json.dumps(post_body, indent=2, ensure_ascii=False)}")
     sys.stdout.flush()
     start_time = time.time()
     request = service.posts().insert(
@@ -915,6 +916,7 @@ except HttpError as e:
             print("--- تلاش مجدد بدون customPermalink...")
             sys.stdout.flush()
             post_body.pop("customPermalink")
+            print(f"--- درخواست جدید بدون customPermalink: {json.dumps(post_body, indent=2, ensure_ascii=False)}")
             request = service.posts().insert(
                 blogId=BLOG_ID,
                 body=post_body,
