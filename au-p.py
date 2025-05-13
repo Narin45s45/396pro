@@ -863,7 +863,7 @@ sys.stdout.flush()
 try:
     # دریافت شماره پست بعدی
     post_number = get_next_post_number(service, BLOG_ID)
-    custom_permalink = f"news-{post_number}"  # به جای crypto-123، مثلاً news-1، news-2
+    custom_permalink = translated_title.replace(" ", "-").lower()[:50]  # مثلاً: بیت-کوین-به-رکورد-جدید
 
     post_body = {
         "kind": "blogger#post",
