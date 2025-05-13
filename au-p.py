@@ -844,6 +844,11 @@ sys.stdout.flush()
 
 
 
+import random
+import time
+import json
+from googleapiclient.errors import HttpError
+
 # تابع برای تولید شماره تصادفی 10 رقمی و چک کردن منحصر به فرد بودن
 def generate_unique_random_permalink(service, blog_id):
     max_attempts = 10  # حداکثر تلاش برای تولید شماره غیرتکراری
@@ -859,7 +864,7 @@ def generate_unique_random_permalink(service, blog_id):
             print(f"!!! خطا در چک کردن permalink: {e}")
             sys.stdout.flush()
             break
-    # اگه شماره غیرتکراری پیدا نشد، از زمان برای جلوگیری از تکرار استفاده می‌کنیم
+    # فال‌بک: اگه شماره غیرتکراری پیدا نشد، از زمان استفاده می‌کنیم
     random_number = random.randint(1000000000, 9999999999)
     timestamp = int(time.time())
     return f"crypto-{random_number}-{timestamp}"
@@ -869,6 +874,8 @@ print("\n>>> مرحله ۷: ارسال پست به بلاگر...")
 sys.stdout.flush()
 try:
     custom_permalink = generate_unique_random_permalink(service, BLOG_ID)
+    print(f"--- permalink تولیدشده: {custom_permalink}")
+    sys.stdout.flush()
 
     post_body = {
         "kind": "blogger#post",
@@ -890,7 +897,9 @@ try:
     end_time = time.time()
     print(f"--- فراخوانی insert کامل شد (در زمان {end_time - start_time:.2f} ثانیه).")
     sys.stdout.flush()
-    print("<<< پست با موفقیت ارسال شد! URL:", response.get("url", "نامشخص"))
+    print(f"<<< پست با موفقیت ارسال شد! پاسخ کامل API: {json.dumps(response, indent=2, ensure_ascii=False)}")
+    sys.stdout.flush()
+    print(f"<<< URL نهایی: {response.get('url', 'نامشخص')}")
     sys.stdout.flush()
 except HttpError as e:
     try:
@@ -899,6 +908,7 @@ except HttpError as e:
         status_code = error_details.get('code', e.resp.status)
         error_message = error_details.get('message', str(e))
         print(f"!!! خطا در API بلاگر (کد {status_code}): {error_message}")
+        print(f"!!! پاسخ کامل خطا: {json.dumps(error_content, indent=2, ensure_ascii=False)}")
         sys.stdout.flush()
         if status_code == 400 and "customPermalink" in error_message:
             print(f"!!! خطای 400: ساختار customPermalink ({custom_permalink}) نامعتبر است.")
@@ -911,7 +921,9 @@ except HttpError as e:
                 isDraft=False
             )
             response = request.execute()
-            print("--- پست با URL پیش‌فرض ارسال شد! URL:", response.get("url", "نامشخص"))
+            print(f"--- پست با URL پیش‌فرض ارسال شد! پاسخ کامل API: {json.dumps(response, indent=2, ensure_ascii=False)}")
+            sys.stdout.flush()
+            print(f"<<< URL نهایی: {response.get('url', 'نامشخص')}")
             sys.stdout.flush()
     except (json.JSONDecodeError, AttributeError):
         print(f"!!! خطا در API بلاگر (وضعیت {e.resp.status}): {e}")
@@ -922,7 +934,6 @@ except Exception as e:
     print("Traceback:")
     traceback.print_exc()
     sys.stdout.flush()
-
 
 print("\n" + "="*50)
 print(">>> اسکریپت به پایان رسید.")
