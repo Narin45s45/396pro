@@ -874,7 +874,7 @@ if 'translated_title' not in locals() or not translated_title:
 else:
     custom_post_identifier = slugify_persian(translated_title)
     # ساختار مسیر مورد نظر: /crypto/شناسه_پست/
-    custom_path = f"/crypto/{custom_post_identifier}/"
+    custom_path = f"/crypto/{custom_post_identifier}.html"
     print(f"--- مسیر سفارشی پیشنهادی برای بلاگر: {custom_path}")
     sys.stdout.flush()
 # --- پایان بخش اضافه شده ---
