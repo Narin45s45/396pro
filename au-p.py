@@ -840,39 +840,36 @@ full_content = "".join(full_content_parts)
 print("<<< مرحله ۶ کامل شد.")
 sys.stdout.flush()
 
-# --- تابع برای دریافت شماره پست بعدی ---
-def get_next_post_number(service, blog_id):
-    print(">>> دریافت تعداد پست‌های موجود برای تولید شماره جدید...")
-    sys.stdout.flush()
-    try:
-        request = service.posts().list(blogId=blog_id, maxResults=0)
-        response = request.execute()
-        total_posts = response.get("totalItems", 0)
-        next_number = total_posts + 1
-        print(f"--- تعداد پست‌های فعلی: {total_posts}. شماره پست بعدی: {next_number}")
-        sys.stdout.flush()
-        return next_number
-    except Exception as e:
-        print(f"!!! خطا در دریافت تعداد پست‌ها: {e}")
-        sys.stdout.flush()
-        return 1  # در صورت خطا، از 1 شروع کن
+# تابع برای تولید شماره تصادفی 10 رقمی و چک کردن منحصر به فرد بودن
+def generate_unique_random_permalink(service, blog_id):
+    max_attempts = 10
+    for _ in range(max_attempts):
+        random_number = random.randint(1000000000, 9999999999)
+        permalink = f"crypto-{random_number}"
+        try:
+            posts = service.posts().list(blogId=blog_id, maxResults=100).execute()
+            existing_permalinks = [post.get("customPermalink", "") for post in posts.get("items", [])]
+            if permalink not in existing_permalinks:
+                return permalink
+        except Exception as e:
+            print(f"!!! خطا در چک کردن permalink: {e}")
+            sys.stdout.flush()
+            break
+    random_number = random.randint(1000000000, 9999999999)
+    timestamp = int(time.time())
+    return f"crypto-{random_number}-{timestamp}"
 
 # --- مرحله ۷: ارسال پست به بلاگر ---
 print("\n>>> مرحله ۷: ارسال پست به بلاگر...")
 sys.stdout.flush()
 try:
-    # دریافت شماره پست بعدی
-    post_number = get_next_post_number(service, BLOG_ID)
-    custom_permalink = f"crypto-{post_number}"  # می‌شود /p/crypto-123.html
-    # custom_permalink = "crypto-123"  # برای لینک ثابت
-    # یا
-    # custom_permalink = f"news-{post_number}"  # برای فرمت دیگر
+    custom_permalink = generate_unique_random_permalink(service, BLOG_ID)
 
     post_body = {
         "kind": "blogger#post",
         "blog": {"id": BLOG_ID},
-        "title": translated_title,  # از عنوان ترجمه‌شده
-        "content": full_content,    # از محتوای تولیدشده
+        "title": translated_title,
+        "content": full_content,
         "labels": ["crypto"],
         "customPermalink": custom_permalink
     }
