@@ -13,7 +13,9 @@ from urllib.parse import urlparse
 import sys
 import uuid # برای ساخت placeholder های منحصر به فرد
 import random
-
+import time
+import json
+from googleapiclient.errors import HttpError
 
 
 
@@ -840,11 +842,13 @@ full_content = "".join(full_content_parts)
 print("<<< مرحله ۶ کامل شد.")
 sys.stdout.flush()
 
+
+
 # تابع برای تولید شماره تصادفی 10 رقمی و چک کردن منحصر به فرد بودن
 def generate_unique_random_permalink(service, blog_id):
-    max_attempts = 10
+    max_attempts = 10  # حداکثر تلاش برای تولید شماره غیرتکراری
     for _ in range(max_attempts):
-        random_number = random.randint(1000000000, 9999999999)
+        random_number = random.randint(1000000000, 9999999999)  # شماره 10 رقمی
         permalink = f"crypto-{random_number}"
         try:
             posts = service.posts().list(blogId=blog_id, maxResults=100).execute()
@@ -855,6 +859,7 @@ def generate_unique_random_permalink(service, blog_id):
             print(f"!!! خطا در چک کردن permalink: {e}")
             sys.stdout.flush()
             break
+    # اگه شماره غیرتکراری پیدا نشد، از زمان برای جلوگیری از تکرار استفاده می‌کنیم
     random_number = random.randint(1000000000, 9999999999)
     timestamp = int(time.time())
     return f"crypto-{random_number}-{timestamp}"
