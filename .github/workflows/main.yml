@@ -1,54 +1,20 @@
-name: Publish Post to WordPress
-
-on:
-  schedule:
-    - cron: '0 0 * * *'  # هر روز ساعت 00:00 UTC اجرا می‌شه
-  workflow_dispatch:      # امکان اجرای دستی
-
+name: Test WordPress Post
+on: [push]
 jobs:
-  publish-post:
+  post-to-wordpress:
     runs-on: ubuntu-latest
-
     steps:
-    # ۱. چک‌اوت کردن کد
-    - name: Checkout repository
-      uses: actions/checkout@v4 # به‌روزرسانی به نسخه جدیدتر (اختیاری اما توصیه می‌شود)
-
-    # ۲. نصب پایتون
+    - uses: actions/checkout@v3
     - name: Set up Python
-      uses: actions/setup-python@v5 # به‌روزرسانی به نسخه جدیدتر (اختیاری اما توصیه می‌شود)
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
-
-    # ۳. آپگرید pip
-    - name: Upgrade pip
-      run: python -m pip install --upgrade pip
-
-    # ۴. نصب وابستگی‌های لازم برای وردپرس
+        python-version: '3.x'
     - name: Install dependencies
-      run: pip install feedparser requests beautifulsoup4 # حذف کتابخانه‌های گوگل
-
-    # ۵. تنظیم متغیرهای محیطی برای اسکریپت
-    - name: Set environment variables
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+    - name: Run script
       env:
-        # این متغیرها از GitHub Secrets خوانده می‌شوند
-        GEMAPI_SECRET: ${{ secrets.GEMAPI }}
-        WORDPRESS_URL_SECRET: ${{ secrets.WORDPRESS_URL }}
-        WORDPRESS_USER_SECRET: ${{ secrets.WORDPRESS_USER }}
-        WORDPRESS_PASS_SECRET: ${{ secrets.WORDPRESS_PASS }}
-      run: |
-        echo "GEMAPI=${GEMAPI_SECRET}" >> $GITHUB_ENV
-        echo "WORDPRESS_URL=${WORDPRESS_URL_SECRET}" >> $GITHUB_ENV
-        echo "WORDPRESS_USER=${WORDPRESS_USER_SECRET}" >> $GITHUB_ENV
-        echo "WORDPRESS_PASS=${WORDPRESS_PASS_SECRET}" >> $GITHUB_ENV
-        echo "::add-mask::${WORDPRESS_PASS_SECRET}" # برای ماسک کردن پسورد در لاگ‌ها
-
-    # ۶. اجرای کد پایتون
-    - name: Run Python script
-      run: python au-p.py # نام اسکریپت شما
-
-    # ۷. لاگ کردن خروجی (اختیاری)
-    - name: Log output
-      if: always() # این مرحله همیشه اجرا می‌شود، حتی اگر مراحل قبلی فیل شوند
-      run: |
-        echo "Workflow completed at $(date)"
+        WORDPRESS_USER: ${{ secrets.WORDPRESS_USER }}
+        WORDPRESS_PASS: ${{ secrets.WORDPRESS_PASS }}
+      run: python test_wordpress.py
