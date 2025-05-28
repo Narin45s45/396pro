@@ -17,4 +17,4 @@ jobs:
       env:
         WORDPRESS_USER: ${{ secrets.WORDPRESS_USER }}
         WORDPRESS_PASS: ${{ secrets.WORDPRESS_PASS }}
-      run: python test_wordpress.py
+      run: python au-p.py
