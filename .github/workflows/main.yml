@@ -1,9 +1,9 @@
-name: Publish Blog Post
+name: Publish Post to WordPress
 
 on:
   schedule:
     - cron: '0 0 * * *'  # هر روز ساعت 00:00 UTC اجرا می‌شه
-  workflow_dispatch:  # امکان اجرای دستی
+  workflow_dispatch:      # امکان اجرای دستی
 
 jobs:
   publish-post:
@@ -12,11 +12,11 @@ jobs:
     steps:
     # ۱. چک‌اوت کردن کد
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4 # به‌روزرسانی به نسخه جدیدتر (اختیاری اما توصیه می‌شود)
 
     # ۲. نصب پایتون
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5 # به‌روزرسانی به نسخه جدیدتر (اختیاری اما توصیه می‌شود)
       with:
         python-version: '3.9'
 
@@ -24,25 +24,31 @@ jobs:
     - name: Upgrade pip
       run: python -m pip install --upgrade pip
 
-    # ۴. نصب مستقیم وابستگی‌ها
+    # ۴. نصب وابستگی‌های لازم برای وردپرس
     - name: Install dependencies
-      run: pip install feedparser requests beautifulsoup4 google-auth google-api-python-client
+      run: pip install feedparser requests beautifulsoup4 # حذف کتابخانه‌های گوگل
 
-    # ۵. تنظیم متغیرهای محیطی
+    # ۵. تنظیم متغیرهای محیطی برای اسکریپت
     - name: Set environment variables
       env:
-        GEMAPI: ${{ secrets.GEMAPI }}
-        CREDENTIALS: ${{ secrets.CREDENTIALS }}
+        # این متغیرها از GitHub Secrets خوانده می‌شوند
+        GEMAPI_SECRET: ${{ secrets.GEMAPI }}
+        WORDPRESS_URL_SECRET: ${{ secrets.WORDPRESS_URL }}
+        WORDPRESS_USER_SECRET: ${{ secrets.WORDPRESS_USER }}
+        WORDPRESS_PASS_SECRET: ${{ secrets.WORDPRESS_PASS }}
       run: |
-        echo "GEMAPI=$GEMAPI" >> $GITHUB_ENV
-        echo "CREDENTIALS=$CREDENTIALS" >> $GITHUB_ENV
+        echo "GEMAPI=${GEMAPI_SECRET}" >> $GITHUB_ENV
+        echo "WORDPRESS_URL=${WORDPRESS_URL_SECRET}" >> $GITHUB_ENV
+        echo "WORDPRESS_USER=${WORDPRESS_USER_SECRET}" >> $GITHUB_ENV
+        echo "WORDPRESS_PASS=${WORDPRESS_PASS_SECRET}" >> $GITHUB_ENV
+        echo "::add-mask::${WORDPRESS_PASS_SECRET}" # برای ماسک کردن پسورد در لاگ‌ها
 
     # ۶. اجرای کد پایتون
     - name: Run Python script
-      run: python au-p.py
+      run: python au-p.py # نام اسکریپت شما
 
     # ۷. لاگ کردن خروجی (اختیاری)
     - name: Log output
-      if: always()
+      if: always() # این مرحله همیشه اجرا می‌شود، حتی اگر مراحل قبلی فیل شوند
       run: |
-        echo "Workflow completed."
+        echo "Workflow completed at $(date)"
