@@ -1,24 +1,35 @@
 name: Test WordPress Post
-on: [push]
+
+on: [push] # این ورک‌فلو با هر push به ریپازیتوری اجرا می‌شود
+
 jobs:
   post-to-wordpress:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Checkout repository # ۱. دریافت کد از ریپازیتوری
+      uses: actions/checkout@v4 # پیشنهاد می‌شود از آخرین نسخه استفاده کنید
+
+    - name: Set up Python # ۲. آماده‌سازی پایتون
+      uses: actions/setup-python@v5 # پیشنهاد می‌شود از آخرین نسخه استفاده کنید
       with:
-        python-version: '3.x'
-    - name: Install dependencies
+        python-version: '3.9' # می‌توانید نسخه دقیق‌تر پایتون را مشخص کنید
+
+    - name: Install dependencies # ۳. نصب وابستگی‌های پایتون
       run: |
         python -m pip install --upgrade pip
-        pip install requests
-    - name: Run script
+        pip install requests feedparser beautifulsoup4 # افزودن وابستگی‌های مورد نیاز اسکریپت کامل
+
+    - name: Change DNS (اختیاری - برای رفع مشکلات خاص شبکه)
+      run: |
+        echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+        echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
+        echo "DNS servers configured. Current /etc/resolv.conf:"
+        sudo cat /etc/resolv.conf # برای اطمینان از تغییر (اختیاری)
+        
+    - name: Run Python script # ۴. اجرای اسکریپت پایتون
       env:
+        WORDPRESS_URL: ${{ secrets.WORDPRESS_URL }}   # اضافه شد - ضروری
         WORDPRESS_USER: ${{ secrets.WORDPRESS_USER }}
         WORDPRESS_PASS: ${{ secrets.WORDPRESS_PASS }}
-        - name: Change DNS
-  run: |
-    echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
-    echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
+        GEMAPI: ${{ secrets.GEMAPI }}                 # اضافه شد - ضروری
       run: python au-p.py
