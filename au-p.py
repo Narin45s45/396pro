@@ -5,8 +5,8 @@ import traceback
 
 # تنظیمات وردپرس
 WORDPRESS_URL = "https://arzitals.ir/wp-json/wp/v2/posts"  # آدرس API وردپرس
-WORDPRESS_USER = "my_python_script"  # نام کاربری
-WORDPRESS_PASS = "p7lSRsWKijyYGxrwjIzJ82b6"  # رمز عبور برنامه
+WORDPRESS_USER = "alireza"  # نام کاربری
+WORDPRESS_PASS = "9wDy7keQ7dUsFZbZxu0EHJad"  # رمز عبور برنامه
 auth_tuple = (WORDPRESS_USER, WORDPRESS_PASS)  # برای احراز هویت
 
 # داده‌های پست
