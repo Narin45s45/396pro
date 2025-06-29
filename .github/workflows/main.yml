@@ -1,22 +1,20 @@
 name: Test WordPress Post
 
 on:
-  push: # این ورک‌فلو با هر push به ریپازیتوری اجرا می‌شود
-    branches:
-      - main # یا هر شاخه دیگری که می‌خواهید در آن push ها را رصد کنید
+  # این خط باعث می‌شود دکمه "Run workflow" در UI گیت‌هاب ظاهر شود (برای اجرای دستی)
+  workflow_dispatch:
 
-  workflow_dispatch: # این خط باعث می‌شود دکمه "Run workflow" در UI گیت‌هاب ظاهر شود
-    # می‌توانید ورودی‌های اختیاری برای اجرای دستی تعریف کنید، مثال:
-    # inputs:
-    #   logLevel:
-    #     description: 'Log level'
-    #     required: true
-    #     default: 'warning'
-    #     type: choice
-    #     options:
-    #       - info
-    #       - warning
-    #       - debug
+  # --- این بخش را اضافه یا ویرایش کنید تا هر 1 ساعت اجرا شود ---
+  schedule:
+    # هر ساعت در دقیقه 0 (یعنی در راس هر ساعت) اجرا می‌شود.
+    # مثال: 00:00, 01:00, 02:00, ..., 23:00 UTC
+    - cron: '0 * * * *'
+  # --- پایان بخش جدید/ویرایش شده ---
+
+  # اگر نمی‌خواهید با هر push هم اجرا شود، بخش push را حذف کنید یا کامنت کنید:
+  # push:
+  #   branches:
+  #     - main
 
 jobs:
   post-to-wordpress:
@@ -44,7 +42,7 @@ jobs:
 
     - name: Run Python script
       env:
-        WORDPRESS_URL: ${{ secrets.WORDPRESS_URL }}
+        WORDPRESS_MAIN_URL: ${{ secrets.WORDPRESS_MAIN_URL }}
         WORDPRESS_USER: ${{ secrets.WORDPRESS_USER }}
         WORDPRESS_PASS: ${{ secrets.WORDPRESS_PASS }}
         GEMAPI: ${{ secrets.GEMAPI }}
