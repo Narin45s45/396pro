@@ -46,19 +46,23 @@ GEMINI_MODEL_NAME = "gemini-2.5-flash-preview-05-20"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL_NAME}:generateContent"
 GEMINI_API_KEY = os.environ.get("GEMAPI")
 
-WORDPRESS_URL = os.environ.get("WORDPRESS_URL")
+# --- تنظیمات API وردپرس (به‌روزرسانی شده) ---
+WORDPRESS_MAIN_URL = os.environ.get("WORDPRESS_URL") # این باید آدرس اصلی سایت باشد: e.g., "https://arzitals.ir"
 WORDPRESS_USER = os.environ.get("WORDPRESS_USER")
 WORDPRESS_PASS = os.environ.get("WORDPRESS_PASS")
 
+# URLهای Endpointهای API شما
+WORDPRESS_CUSTOM_POST_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-poster/v1/create"
+WORDPRESS_PROCESSED_LINKS_GET_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-poster/v1/processed-links"
+WORDPRESS_PROCESSED_LINKS_ADD_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-poster/v1/processed-links"
+
 REQUEST_TIMEOUT = 60
 GEMINI_TIMEOUT = 150
-PROCESSED_LINKS_FILE = "processed_links.txt"
+# PROCESSED_LINKS_FILE = "processed_links.txt" # این خط دیگر نیازی نیست و حذف می‌شود
 MASTER_LOG_FILE = "master_log.txt"
 
-if not all([GEMINI_API_KEY, WORDPRESS_URL, WORDPRESS_USER, WORDPRESS_PASS]):
-    raise ValueError("یکی از متغیرهای محیطی ضروری (GEMAPI, WORDPRESS_URL, USER, PASS) تنظیم نشده است.")
-
-WORDPRESS_API_ENDPOINT = WORDPRESS_URL.rstrip('/') + "/wp-json/my-poster/v1/create"
+if not all([GEMINI_API_KEY, WORDPRESS_MAIN_URL, WORDPRESS_USER, WORDPRESS_PASS]):
+    raise ValueError("یکی از متغیرهای محیطی ضروری (GEMAPI, WORDPRESS_URL, WORDPRESS_USER, WORDPRESS_PASS) تنظیم نشده است.")
 
 # --- توابع کمکی ---
 def generate_english_slug(title_str):
@@ -188,7 +192,7 @@ def translate_with_gemini(text_to_translate):
         f"5.1. برای تگ‌های <blockquote> با کلاس 'twitter-tweet' یا موارد مشابه که نقل قول از شبکه‌های اجتماعی هستند، تمام متن‌های داخل تگ‌های <p> در آن‌ها را به دقت به فارسی روان، خلاقانه و جذاب بازنویسی کن (نه ترجمه تحت اللفظی یا ساده). کیفیت بازنویسی باید با سایر بخش‌های متن همخوانی داشته باشد. متن اصلی انگلیسی باید *کاملاً حذف* شده و *فقط و فقط بازنویسی فارسی* آن در خروجی باشد. لینک‌های موجود در توییت (مثل لینک به خود توییت یا لینک به تصاویر/ویدیوها مانند pic.twitter.com) و نام کاربری‌ها (مثل @ray4tesla) را حفظ کن.\n"
         f"6. اصطلاحات 'bear'، 'bearish' یا مشابه را به 'فروشندگان' یا 'نزولی' (بسته به زمینه) و اصطلاحات 'bull'، 'bullish' یا مشابه را به 'خریداران' یا 'صعودی' (بسته به زمینه) ترجمه کن. از کلمات 'خرس' یا 'گاو' به هیچ عنوان استفاده نکن.\n"
         f"7. تاریخ‌های میلادی (مانند May 1, 2025) را به فرمت شمسی (مانند ۱۱ اردیبهشت ۱۴۰۴) تبدیل کن. تاریخ‌ها باید دقیق و مطابق تقویم شمسی باشند و به صورت متنی (نه عددی مثل 1404/02/11) نوشته شوند. اگر تاریخ در متن مبهم است (مثلاً فقط ماه و سال)، فقط ماه و سال را به شمسی تبدیل کن.\n"
-        f"8. ساختار HTML موجود (مثل تگ‌های <p>، <div>، <b>، <blockquote>، <a>) رو دقیقاً حفظ کن و تغییر نده. این شامل خود تگ‌ها، ویژگی‌ها (attributes) و ترتیبشون می‌شه.\n"
+        f"8. ساختار HTML موجود (مثل تگ‌های <p>، <div>، <b>، blockquote، <a>) رو دقیقاً حفظ کن و تغییر نده. این شامل خود تگ‌ها، ویژگی‌ها (attributes) و ترتیبشون می‌شه.\n"
         f"9. در انتها و در پاراگراف جداگانه کاربران رو تحریک به نظرسنجی کن و در تگ  p  باشد.\n"
         f"10. هیچ تگ HTML جدیدی (مثل <p>، <b>، <div>) به متن اضافه نکن، مگر اینکه توی متن اصلی وجود داشته باشه. اگه متن اصلی تگ HTML نداره (مثلاً یه متن ساده است)، خروجی هم باید بدون تگ HTML باشه.\n"
         f"11. Placeholder های تصویر (مثل ##IMG_PLACEHOLDER_UUID##) رو دقیقاً همون‌طور که هستن نگه دار و تغییر نده. و هیچ کاراکتری به ابتدا یا انتهای آنها اضافه یا از آنها کم نکن و فاصله‌گذاری اطراف آنها را تا حد امکان حفظ کن.\n"
@@ -330,7 +334,7 @@ def crawl_captions(post_url):
     print(f">>> شروع کرال و ترجمه کپشن‌ها از: {post_url}")
     sys.stdout.flush(); captions_data_list = []
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/553.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'} # Adjusted User-Agent
         response = requests.get(post_url, timeout=REQUEST_TIMEOUT, headers=headers)
         response.raise_for_status(); soup = BeautifulSoup(response.content, "html.parser")
         figures = soup.find_all("figure"); print(f"--- تعداد <figure> یافت شده برای بررسی کپشن: {len(figures)}"); sys.stdout.flush()
@@ -479,7 +483,6 @@ def remove_boilerplate_sections(html_content):
         'see also',
         'featured image from',
         'disclaimer:',
-    
     ]
     
     # تگ‌های مختلفی که ممکن است حاوی این متون باشند را بررسی می‌کنیم
@@ -497,14 +500,10 @@ def remove_boilerplate_sections(html_content):
     return str(soup)
     
     
-    
     #-------------------------------------------
 
 
-
-
-
-def post_to_wordpress(title_for_wp, content_for_wp, original_english_title, thumbnail_url_for_plugin, status="publish"):
+def post_to_wordpress(title_for_wp, content_for_wp, original_english_title, thumbnail_url_for_plugin, source_url_for_post, status="publish"): # اضافه شدن source_url_for_post
     print(f">>> شروع ارسال پست '{title_for_wp[:50]}...' به endpoint سفارشی وردپرس...")
     sys.stdout.flush()
 
@@ -524,16 +523,17 @@ def post_to_wordpress(title_for_wp, content_for_wp, original_english_title, thum
         "content": content_for_wp,
         "slug": english_slug,
         "category_id": 69,
-        "thumbnail_url": thumbnail_url_for_plugin if thumbnail_url_for_plugin else ""
+        "thumbnail_url": thumbnail_url_for_plugin if thumbnail_url_for_plugin else "",
+        "source_url": source_url_for_post # ارسال source_url به پلاگین
     }
 
-    print(f"--- در حال ارسال داده به endpoint سفارشی: {WORDPRESS_API_ENDPOINT}")
+    print(f"--- در حال ارسال داده به endpoint سفارشی: {WORDPRESS_CUSTOM_POST_API_ENDPOINT}")
 
     max_retries_wp, retry_delay_wp = 2, 25
     for attempt in range(max_retries_wp + 1):
         print(f"--- تلاش {attempt + 1}/{max_retries_wp + 1} برای ارسال...")
         try:
-            response = requests.post(WORDPRESS_API_ENDPOINT, headers=headers, json=post_data, timeout=REQUEST_TIMEOUT * 3)
+            response = requests.post(WORDPRESS_CUSTOM_POST_API_ENDPOINT, headers=headers, json=post_data, timeout=REQUEST_TIMEOUT * 3)
             response.raise_for_status()
             response_data = response.json()
 
@@ -554,7 +554,7 @@ def post_to_wordpress(title_for_wp, content_for_wp, original_english_title, thum
             if attempt < max_retries_wp: time.sleep(retry_delay_wp); retry_delay_wp = int(retry_delay_wp * 1.5); continue
             raise ValueError(error_message_detail)
         except Exception as e:
-            print(f"!!! خطای ناشناخته در ارسال به endpoint سفارشی: {e}")
+            print(f"!!! خطای ناشناخته در ارسال به endpoint سفarشی: {e}")
             if attempt < max_retries_wp: time.sleep(retry_delay_wp); retry_delay_wp = int(retry_delay_wp * 1.5); continue
             raise ValueError(f"خطای ناشناخته پس از تلاش‌های مکرر: {e}")
 
@@ -631,22 +631,65 @@ def resolve_tradingview_links(html_content):
 
     return str(soup)
 
-def load_processed_links():
-    if not os.path.exists(PROCESSED_LINKS_FILE):
-        return set()
+# --- توابع جدید برای مدیریت لینک‌های پردازش شده در دیتابیس وردپرس ---
+def load_processed_links_from_wordpress():
+    """
+    لینک‌های پردازش شده را از Endpoint REST API وردپرس دریافت می‌کند.
+    """
+    print(f"--- در حال دریافت لیست لینک‌های پردازش شده از وردپرس ({WORDPRESS_PROCESSED_LINKS_GET_API_ENDPOINT})...")
+    credentials = f"{WORDPRESS_USER}:{WORDPRESS_PASS}"
+    token = base64.b64encode(credentials.encode())
+    headers = {
+        'Authorization': f'Basic {token.decode("utf-8")}',
+        'User-Agent': 'Python-Rss-To-WordPress-Script/3.3-TV-Resolve'
+    }
     try:
-        with open(PROCESSED_LINKS_FILE, 'r', encoding='utf-8') as f:
-            return {line.strip() for line in f if line.strip()}
-    except Exception as e:
-        print(f"--- هشدار: امکان خواندن فایل '{PROCESSED_LINKS_FILE}' وجود نداشت: {e}")
-        return set()
+        response = requests.get(
+            WORDPRESS_PROCESSED_LINKS_GET_API_ENDPOINT,
+            headers=headers,
+            timeout=REQUEST_TIMEOUT
+        )
+        response.raise_for_status() # بررسی خطاهای HTTP
+        processed_links = response.json()
+        if not isinstance(processed_links, list):
+            print(f"!!! هشدار: پاسخ API لینک‌های پردازش شده لیست نیست، نوع آن: {type(processed_links)}. در حال فرض لیست خالی.")
+            return set() # برگرداندن یک مجموعه خالی
+        print(f"--- {len(processed_links)} لینک پردازش شده از وردپرس دریافت شد.")
+        return set(processed_links) # تبدیل به مجموعه برای جستجوی سریعتر
+    except requests.exceptions.RequestException as e:
+        print(f"!!! خطای شدید در دریافت لینک‌های پردازش شده از وردپرس: {e}")
+        # این یک خطای بحرانی است، چون بدون لیست نمی‌توان از تکرار جلوگیری کرد.
+        # می‌توانید اینجا یک ValueError ایجاد کنید تا اسکریپت متوقف شود.
+        raise ValueError(f"امکان دریافت لیست لینک‌های پردازش شده از وردپرس وجود ندارد: {e}")
 
-def save_processed_link(link):
+def save_processed_link_to_wordpress(link_url):
+    """
+    لینک جدید را به Endpoint REST API وردپرس برای ذخیره اضافه می‌کند.
+    """
+    print(f"--- در حال افزودن لینک '{link_url}' به لیست پردازش شده در وردپرس...")
+    credentials = f"{WORDPRESS_USER}:{WORDPRESS_PASS}"
+    token = base64.b64encode(credentials.encode())
+    headers = {
+        'Authorization': f'Basic {token.decode("utf-8")}',
+        'Content-Type': 'application/json',
+        'User-Agent': 'Python-Rss-To-WordPress-Script/3.3-TV-Resolve'
+    }
+    payload = {"link": link_url}
     try:
-        with open(PROCESSED_LINKS_FILE, 'a', encoding='utf-8') as f:
-            f.write(link + '\n')
-    except Exception as e:
-        print(f"!!! خطای بحرانی: امکان ذخیره لینک پردازش شده در '{PROCESSED_LINKS_FILE}' وجود نداشت: {e}")
+        response = requests.post(
+            WORDPRESS_PROCESSED_LINKS_ADD_API_ENDPOINT,
+            headers=headers,
+            json=payload,
+            timeout=REQUEST_TIMEOUT
+        )
+        response.raise_for_status() # بررسی خطاهای HTTP (مثل 401 Unauthorized)
+        response_data = response.json()
+        print(f"--- لینک با موفقیت در وردپرس اضافه شد: {response_data.get('message', 'بدون پیام')}")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"!!! خطای شدید در افزودن لینک '{link_url}' به وردپرس: {e}")
+        # این یک خطای بحرانی است، زیرا اگر لینک ذخیره نشود، می‌تواند منجر به تکرار شود.
+        raise ValueError(f"امکان ذخیره لینک '{link_url}' در وردپرس وجود ندارد: {e}")
 
 # --- شروع اسکریپت اصلی ---
 if __name__ == "__main__":
@@ -661,9 +704,10 @@ if __name__ == "__main__":
     post_original_link_from_feed = None
 
     try:
-        # مرحله ۰: بارگذاری لینک‌های قبلی و بررسی تکراری بودن
+        # مرحله ۰: بارگذاری لینک‌های قبلی و بررسی تکراری بودن (استفاده از API وردپرس)
         print("\n>>> مرحله ۰: بررسی پست‌های تکراری...");
-        processed_links = load_processed_links()
+        # تغییر کلیدی: فراخوانی تابع جدید برای خواندن لینک‌ها از وردپرس
+        processed_links = load_processed_links_from_wordpress() 
         print(f"--- {len(processed_links)} لینک پردازش شده از قبل یافت شد.")
 
         # مرحله ۱: دریافت فید RSS
@@ -686,9 +730,7 @@ if __name__ == "__main__":
             print(f"*** عنوان: {original_post_title_english_for_error}")
             print(f"*** لینک: {post_original_link_from_feed}")
             print("*"*60 + "\n")
-            # In a real scenario, you might want to exit gracefully.
-            # For this example, we'll let it finish. In a cron job, sys.exit(0) is appropriate.
-            sys.exit(0)
+            sys.exit(0) # خروج موفقیت‌آمیز برای پست تکراری
 
         print(f"--- جدیدترین پست (غیر تکراری) انتخاب شد: '{original_post_title_english_for_error}' (لینک: {post_original_link_from_feed})")
         print("<<< مرحله ۱ کامل شد.");
@@ -727,13 +769,13 @@ if __name__ == "__main__":
         if not raw_content_html_from_feed: raise ValueError("محتوای اصلی (content یا summary) از فید یافت نشد.")
         print(f"--- محتوای خام از فید دریافت شد (طول: {len(raw_content_html_from_feed)} کاراکتر).");
 
-# مرحله ۱ پاکسازی: حذف هوشمند بخش‌های "Related Reading" با تابع جدید
+        # مرحله ۱ پاکسازی: حذف هوشمند بخش‌های "Related Reading" با تابع جدید
         content_without_boilerplate = remove_boilerplate_sections(raw_content_html_from_feed)
 
-# مرحله ۲ پاکسازی: حذف لینک‌های داخلی از محتوای باقی‌مانده و تمیز شده
+        # مرحله ۲ پاکسازی: حذف لینک‌های داخلی از محتوای باقی‌مانده و تمیز شده
         cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
-# ۱. پردازش‌های اولیه تصویر (بدون تغییر لینک اصلی)
+        # ۱. پردازش‌های اولیه تصویر (بدون تغییر لینک اصلی)
         content_after_base64_conversion = replace_filtered_images_in_content_with_base64(cleaned_content_after_regex)
 
         # ۲. جایگزینی تصاویر با Placeholder و ترجمه
@@ -766,23 +808,19 @@ if __name__ == "__main__":
         list_of_html_components = []
         if final_processed_content_html: list_of_html_components.append(f'<div style="line-height: 1.75; font-size: 17px; text-align: justify;">{final_processed_content_html}</div>')
         
-        # ==================== این بخش جدید را اضافه کنید ====================
-# افزودن متن سلب مسئولیت (Disclaimer) در انتهای پست
-# می‌توانید متن یا استایل را در اینجا به دلخواه تغییر دهید
+        # افزودن متن سلب مسئولیت (Disclaimer) در انتهای پست
         disclaimer_text = '<strong>سلب مسئولیت:</strong> احتمال اشتباه در تحلیل ها وجود دارد و هیچ تحلیلی قطعی نیست و همه بر پایه احتمالات میباشند. لطفا در خرید و فروش خود دقت کنید.'
-
         disclaimer_html_code = (
-            f'<div style="color: #c00; '              # رنگ متن قرمز تیره
-            'font-size: 0.9em; '                      # سایز فونت کمی کوچکتر
-            'margin-top: 25px; '                      # فاصله از بالای متن
-            'text-align: justify; '                   # تراز بودن متن
-            'border: 1px solid #fdd; '                # یک حاشیه قرمز کم‌رنگ
-            'background-color: #fff9f9; '             # یک پس‌زمینه قرمز بسیار روشن
-            'padding: 15px; '                         # فاصله داخلی
+            f'<div style="color: #c00; '
+            'font-size: 0.9em; '
+            'margin-top: 25px; '
+            'text-align: justify; '
+            'border: 1px solid #fdd; '
+            'background-color: #fff9f9; '
+            'padding: 15px; '
             f'border-radius: 5px;">{disclaimer_text}</div>'
         )
         list_of_html_components.append(disclaimer_html_code)
-# ================== پایان بخش جدیدی که باید اضافه شود ==================
         
         if post_original_link_from_feed:
             source_attribution_text = "منبع: NewsBTC"
@@ -798,15 +836,16 @@ if __name__ == "__main__":
             content_for_wp=final_html_payload_for_wordpress,
             original_english_title=original_post_title_english_for_error,
             thumbnail_url_for_plugin=thumbnail_url_for_plugin_final,
-            status="publish"
+            source_url_for_post=post_original_link_from_feed # ارسال source_url
         )
         print("<<< مرحله ۶ (ارسال به وردپرس) کامل شد.");
 
-        # مرحله ۷: ذخیره لینک در صورت موفقیت
+        # مرحله ۷: ذخیره لینک در صورت موفقیت (استفاده از API وردپرس)
         if post_response and post_response.get("post_id"):
             print("\n>>> مرحله ۷: ذخیره کردن لینک منبع برای جلوگیری از تکرار...");
-            save_processed_link(post_original_link_from_feed)
-            print(f"--- لینک '{post_original_link_from_feed[:70]}...' با موفقیت در فایل ثبت شد.")
+            # تغییر کلیدی: فراخوانی تابع جدید برای ذخیره لینک در وردپرس
+            save_processed_link_to_wordpress(post_original_link_from_feed)
+            print(f"--- لینک '{post_original_link_from_feed[:70]}...' با موفقیت در وردپرس ثبت شد.")
             print("<<< مرحله ۷ کامل شد.")
 
     except Exception as global_exception:
@@ -819,7 +858,7 @@ if __name__ == "__main__":
         tb_lines = traceback.format_exception(type(global_exception), global_exception, global_exception.__traceback__)
         for line in tb_lines[-15:]: print(line.strip())
         print("!"*70 + "\n");
-        # sys.exit(1) # Uncomment for production to exit with an error code
+        sys.exit(1) # اضافه شدن sys.exit(1) برای خروج با کد خطا در صورت مشکل
 
     finally:
         total_script_execution_time = time.time() - main_script_start_time
