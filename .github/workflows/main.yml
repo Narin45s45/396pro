@@ -4,46 +4,49 @@ on:
   # این خط باعث می‌شود دکمه "Run workflow" در UI گیت‌هاب ظاهر شود (برای اجرای دستی)
   workflow_dispatch:
 
-  # --- این بخش را اضافه یا ویرایش کنید تا هر 1 ساعت اجرا شود ---
+  # این بخش ورک‌فلو را هر ساعت در دقیقه 0 (راس ساعت) UTC اجرا می‌کند.
   schedule:
-    # هر ساعت در دقیقه 0 (یعنی در راس هر ساعت) اجرا می‌شود.
-    # مثال: 00:00, 01:00, 02:00, ..., 23:00 UTC
     - cron: '0 * * * *'
-  # --- پایان بخش جدید/ویرایش شده ---
 
-  # اگر نمی‌خواهید با هر push هم اجرا شود، بخش push را حذف کنید یا کامنت کنید:
+  # اگر نمی‌خواهید با هر push هم اجرا شود، بخش push را کامنت کنید یا حذف نمایید.
   # push:
   #   branches:
   #     - main
 
 jobs:
   post-to-wordpress:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # استفاده از جدیدترین نسخه اوبونتو برای اجرای workflow
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository # ۱. کد مخزن شما را به محیط اجرای workflow کپی می‌کند
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.9'
+      - name: Set up Python # ۲. پایتون را نصب و پیکربندی می‌کند
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9' # می‌توانید نسخه دقیق‌تر پایتون را مشخص کنید
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install requests feedparser beautifulsoup4
+      - name: Install dependencies # ۳. کتابخانه‌های مورد نیاز پایتون (مثل requests) را نصب می‌کند
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests feedparser beautifulsoup4
 
-    - name: Change DNS (اختیاری - برای رفع مشکلات خاص شبکه)
-      run: |
-        echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
-        echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
-        echo "DNS servers configured. Current /etc/resolv.conf:"
-        sudo cat /etc/resolv.conf
+      - name: Change DNS (اختیاری - برای رفع مشکلات خاص شبکه)
+        # این مرحله در صورت لزوم برای اطمینان از Resolve صحیح DNS در محیط GitHub Actions
+        # استفاده از DNS عمومی گوگل
+        run: |
+          echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+          echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
+          echo "DNS servers configured. Current /etc/resolv.conf:"
+          sudo cat /etc/resolv.conf
 
-    - name: Run Python script
-      env:
-        WORDPRESS_MAIN_URL: ${{ secrets.WORDPRESS_URL }}
-        WORDPRESS_USER: ${{ secrets.WORDPRESS_USER }}
-        WORDPRESS_PASS: ${{ secrets.WORDPRESS_PASS }}
-        GEMAPI: ${{ secrets.GEMAPI }}
-      run: python au-p.py
+      - name: Run Python script # ۴. اجرای اسکریپت پایتون
+        env:
+          # متغیرهای محیطی که از GitHub Secrets خوانده می‌شوند.
+          # مهم: نام Secret در اینجا (سمت راست :) باید دقیقاً با نام Secret در GitHub Settings شما مطابقت داشته باشد.
+          # WORDPRESS_URL در Secrets باید حاوی آدرس اصلی سایت باشد (مثلاً).
+          WORDPRESS_URL: ${{ secrets.WORDPRESS_URL }} 
+          WORDPRESS_USER: ${{ secrets.WORDPRESS_USER }}
+          WORDPRESS_PASS: ${{ secrets.WORDPRESS_PASS }}
+          GEMAPI: ${{ secrets.GEMAPI }}
+        run: python au-p.py # دستور اجرای اسکریپت پایتون شما
