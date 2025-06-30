@@ -42,7 +42,7 @@ class Logger:
 
 # --- تنظیمات اصلی ---
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
-GEMINI_MODEL_NAME = "gemini-2.5-flash-preview-05-20"
+GEMINI_MODEL_NAME = "gemini-2.5-pro"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL_NAME}:generateContent"
 GEMINI_API_KEY = os.environ.get("GEMAPI")
 
