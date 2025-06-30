@@ -206,7 +206,8 @@ def translate_with_gemini(text_to_translate):
         f"17. طرح پرسش‌های تامل‌برانگیز و دعوت به تفکر.\n"
         f"18. ایجاد ارتباط با روندهای گسترده‌تر و ارائه تصویر بزرگتر.\n"
         f"19. **قانون بسیار مهم برای تصاویر:** تگ‌های div با کلاس 'image-placeholder-container' را دقیقاً همانطور که هستند، بدون هیچ تغییری در محتوا یا مکان، حفظ کن. این تگ‌ها جایگاه تصاویر هستند و نباید جابجا شوند.\n"
-        f"20. **قانون بسیار مهم برای فرمت‌بندی:** برای بولد کردن متن، همیشه و فقط از تگ‌های <strong> یا <b> در HTML استفاده کن. هرگز از سینتکس مارک‌داون مانند **...** برای بولد کردن استفاده نکن و **به هیچ عنوان کل متن را بولد نکن.** فقط بخش‌هایی که نیاز به برجسته‌سازی واقعی دارند (مثل عناوین داخلی و جمع‌بندی) باید بولد شوند.\n"        f"\nمتن انگلیسی برای بازنویسی:\n{text_to_translate}\n"
+        f"20. **قانون بسیار مهم برای فرمت‌بندی:** برای بولد کردن متن، همیشه و فقط از تگ‌های <strong> یا <b> در HTML استفاده کن. هرگز از سینتکس مارک‌داون مانند **...** برای بولد کردن استفاده نکن و **به هیچ عنوان کل متن را بولد نکن.** فقط بخش‌هایی که نیاز به برجسته‌سازی واقعی دارند (مثل عناوین داخلی و خلاصه) باید بولد شوند.\n"        f"\nمتن انگلیسی برای بازنویسی:\n{text_to_translate}\n"
+        f"21.اصل متن نباید بولد باشد یعنی مثل سورس  متن باشد.\n"
     )
     payload = {"contents": [{"parts": [{"text": prompt}]}],"generationConfig": {"temperature": 0.4, "topP": 0.9, "topK": 50}}
     max_retries, retry_delay = 2, 20
@@ -240,6 +241,10 @@ def translate_with_gemini(text_to_translate):
             translated_text = candidate["content"]["parts"][0]["text"]
             print("<<< ترجمه محتوای اصلی با Gemini موفق بود."); sys.stdout.flush()
             translated_text = re.sub(r'^```html\s*', '', translated_text, flags=re.IGNORECASE); translated_text = re.sub(r'\s*```$', '', translated_text)
+
+
+
+            
             return translated_text.strip()
         except requests.exceptions.Timeout:
             print(f"!!! خطا: Timeout در ترجمه محتوا (تلاش {attempt + 1})."); sys.stdout.flush()
