@@ -47,24 +47,24 @@ class Logger:
 RSS_FEED_URL = "https://www.newsbtc.com/feed/"
 GEMINI_MODEL_NAME = "gemini-2.5-pro"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL_NAME}:generateContent"
-GEMINI_API_KEY = os.environ.get("GEMAPI")
 
-# --- تنظیمات API وردپرس (به‌روزرسانی شده) ---
+
+GEMINI_API_KEY = os.environ.get("GEMAPI")
 WORDPRESS_MAIN_URL = os.environ.get("WORDPRESS_URL")
 WORDPRESS_USER = os.environ.get("WORDPRESS_USER")
 WORDPRESS_PASS = os.environ.get("WORDPRESS_PASS")
 IMAGE_PROXY_URL = os.environ.get("IMAGE_PROXY_URL") # <-- این خط را اینجا اضافه کنید
 
 # URLهای Endpointهای API شما
-WORDPRESS_CUSTOM_POST_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-poster/v1/create"
-WORDPRESS_PROCESSED_LINKS_GET_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-poster/v1/processed-links"
-WORDPRESS_PROCESSED_LINKS_ADD_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-poster/v1/processed-links"
+WORDPRESS_CUSTOM_POST_API_ENDPOINT = f"{WORDPRESS_URL}/wp-json/my-poster/v1/create"
+WORDPRESS_PROCESSED_LINKS_GET_API_ENDPOINT = f"{WORDPRESS_URL}/wp-json/my-poster/v1/processed-links"
+WORDPRESS_PROCESSED_LINKS_ADD_API_ENDPOINT = f"{WORDPRESS_URL}/wp-json/my-poster/v1/processed-links"
 
 REQUEST_TIMEOUT = 60
 GEMINI_TIMEOUT = 150
 MASTER_LOG_FILE = "master_log.txt"
 
-if not all([GEMINI_API_KEY, WORDPRESS_MAIN_URL, WORDPRESS_USER, WORDPRESS_PASS, IMAGE_PROXY_URL]):
+if not all([GEMAPI, WORDPRESS_URL, WORDPRESS_USER, WORDPRESS_PASS, IMAGE_PROXY_URL]):
     raise ValueError("یکی از متغیرهای محیطی ضروری (GEMAPI, WORDPRESS_URL, WORDPRESS_USER, WORDPRESS_PASS, IMAGE_PROXY_URL) تنظیم نشده است.")
 
 # --- توابع کمکی ---
