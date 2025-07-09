@@ -47,7 +47,7 @@ GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMI
 GEMINI_API_KEY = os.environ.get("GEMAPI")
 
 # --- تنظیمات API وردپرس (به‌روزرسانی شده) ---
-WORDPRESS_MAIN_URL = os.environ.get("WORDPRESS_URL") # این باید آدرس اصلی سایت باشد: e.g., "https://arzitals.ir"
+WORDPRESS_MAIN_URL = os.environ.get("WORDPRESS_URL")
 WORDPRESS_USER = os.environ.get("WORDPRESS_USER")
 WORDPRESS_PASS = os.environ.get("WORDPRESS_PASS")
 
@@ -58,7 +58,6 @@ WORDPRESS_PROCESSED_LINKS_ADD_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-p
 
 REQUEST_TIMEOUT = 60
 GEMINI_TIMEOUT = 150
-# PROCESSED_LINKS_FILE = "processed_links.txt" # این خط دیگر نیازی نیست و حذف می‌شود
 MASTER_LOG_FILE = "master_log.txt"
 
 if not all([GEMINI_API_KEY, WORDPRESS_MAIN_URL, WORDPRESS_USER, WORDPRESS_PASS]):
@@ -84,16 +83,12 @@ def replace_images_with_placeholders(html_content):
     for i, img in enumerate(images):
         img_src_for_log = img.get('src', 'NO_SRC')
         
-        # یک شناسه منحصر به فرد برای هر عکس تولید می‌کنیم
         placeholder_uuid = str(uuid.uuid4())
         
-        # فرمت جدید Placeholder: یک تگ div با شناسه و متن منحصر به فرد
         placeholder_div_str = f'<div class="image-placeholder-container" id="placeholder-{placeholder_uuid}">Image-Placeholder-{placeholder_uuid}</div>'
         
-        # در نقشه، فقط شناسه را به عنوان کلید ذخیره می‌کنیم
         placeholder_map[placeholder_uuid] = str(img) 
         
-        # تگ عکس را با تگ div جدید جایگزین می‌کنیم
         img.replace_with(BeautifulSoup(placeholder_div_str, 'html.parser'))
         count += 1
         
@@ -112,17 +107,13 @@ def restore_images_from_placeholders(html_content, placeholder_map):
     count = 0
     not_found_count = 0
 
-    # به جای جایگزینی رشته، با شناسه منحصر به فرد تگ را پیدا می‌کنیم
     for placeholder_uuid, img_tag_str in placeholder_map.items():
-        # تگ div که دارای شناسه منحصر به فرد ماست را پیدا کن
         target_div = soup.find('div', id=f"placeholder-{placeholder_uuid}")
         
         if target_div:
-            # اگر پیدا شد، آن را با تگ عکس اصلی جایگزین کن
             target_div.replace_with(BeautifulSoup(img_tag_str, 'html.parser'))
             count += 1
         else:
-            # اگر پیدا نشد، خطا را ثبت کن
             not_found_count += 1
             original_img_src_for_log = "نامشخص"
             try:
@@ -187,13 +178,12 @@ def translate_with_gemini(text_to_translate):
         f"2. **دستورالعمل بسیار مهم:** پاسخ شما باید با یک خلاصه دو خطی از کل محتوای ورودی شروع شود که حداکثر 230 کاراکتر باشد. این خلاصه را **باید** داخل یک تگ div با کلاس 'summary' قرار دهی. به این شکل: <div class=\"summary\" style=\"font-weight: bold;\">متن خلاصه اینجا قرار گیرد</div>. **این تگ div باید بلافاصله بسته شود و بقیه محتوا خارج از آن قرار گیرد.** قبل از این تگ هیچ عبارت یا کاراکتر اضافی مانند 'خلاصه:' یا بک‌تیک (`) قرار نده. بعد از این تگ div، بقیه متن را طبق قوانین زیر بازنویسی کن.\n"
         f"قوانین مهم:\n"
         f"3. در همه جا اصول سئو کامل رعایت بشه.\n"
-        f"4. در انتهای متن یک نتیجه‌گیری کامل و تحلیلی ارائه کن که **نباید بیشتر از 6 خط باشد**. این نتیجه‌گیری را داخل یک تگ div با کلاس 'conclusion' قرار بده. فقط عنوان 'جمع‌بندی:' باید بولد باشد و بقیه متن باید در خط جدید و بدون بولد شروع شود. به این شکل: <div class=\"conclusion\"><strong>جمع‌بندی:</strong><br>متن نتیجه‌گیری شما در اینجا...</div>\n"        f"5. **اولویت بالا:** محتوای متنی داخل *تمام* تگ‌های HTML (مانند متن داخل تگ‌های <p>, <h1>, <h2>, <li>, <a>, <figcaption>) را به فارسی روان و دقیق بازنویسی کن. این شامل محتوای متنی داخل تگ‌های تو در تو نیز می‌شود.\n"
-        # --- اصلاح کلیدی ۱: دستور واضح برای توییت ---
+        f"4. در انتهای متن یک نتیجه‌گیری کامل و تحلیلی ارائه کن که **نباید بیشتر از 6 خط باشد**. این نتیجه‌گیری را داخل یک تگ div با کلاس 'conclusion' قرار بده. فقط عنوان 'جمع‌بندی:' باید بولد باشد و بقیه متن باید در خط جدید و بدون بولد شروع شود. به این شکل: <div class=\"conclusion\"><strong>جمع‌بندی:</strong><br>متن نتیجه‌گیری شما در اینجا...</div>\n"        
+        f"5. **اولویت بالا:** محتوای متنی داخل *تمام* تگ‌های HTML (مانند متن داخل تگ‌های <p>, <h1>, <h2>, <li>, <a>, <figcaption>) را به فارسی روان و دقیق بازنویسی کن. این شامل محتوای متنی داخل تگ‌های تو در تو نیز می‌شود.\n"
         f"5.1. **جایگزینی محتوای توییت:** برای تگ‌های <blockquote> با کلاس 'twitter-tweet'، **متن انگلیسی داخل تگ <p> را با بازنویسی روان فارسی آن جایگزین کن.** ساختار کلی <blockquote>، لینک‌های داخل آن (تگ <a>) و نام‌های کاربری را دست‌نخورده باقی بگذار، اما متن اصلی انگلیسی را *کاملاً حذف* کن. هرگز این بلاک را تکرار نکن.\n"
         f"6. اصطلاحات 'bear'، 'bearish' یا مشابه را به 'فروشندگان' یا 'نزولی' و 'bull'، 'bullish' یا مشابه را به 'خریداران' یا 'صعودی' ترجمه کن.\n"
         f"7. تاریخ‌های میلادی را به فرمت شمسی تبدیل کن (مثال: May 1, 2025 به ۱۱ اردیبهشت ۱۴۰۴).\n"
         f"8. ساختار HTML موجود (مثل تگ‌های <p>، <div>، <b>) رو دقیقاً حفظ کن و تغییر نده.\n"
-        # --- اصلاح کلیدی ۲: دستور جدید برای TradingView ---
         f"8.1. **حفظ کامل کدهای TradingView:** هر تگ <figure> یا <blockquote> که حاوی لینکی به 'tradingview.com' است را به طور کامل و **بدون هیچ‌گونه تغییری** (نه در ساختار و نه در محتوا) در خروجی حفظ کن. این بلوک‌ها نباید ترجمه یا دستکاری شوند.\n"
         f"9. در انتهای متن یک پاراگراف برای تحریک کاربران به نظرسنجی اضافه کن که بیشتر از یک خط نباشد.\n"
         f"10. هیچ تگ HTML جدیدی اضافه نکن، مگر اینکه در متن اصلی وجود داشته باشد.\n"
@@ -235,10 +225,6 @@ def translate_with_gemini(text_to_translate):
             translated_text = candidate["content"]["parts"][0]["text"]
             print("<<< ترجمه محتوای اصلی با Gemini موفق بود."); sys.stdout.flush()
             translated_text = re.sub(r'^```html\s*', '', translated_text, flags=re.IGNORECASE); translated_text = re.sub(r'\s*```$', '', translated_text)
-
-
-
-            
             return translated_text.strip()
         except requests.exceptions.Timeout:
             print(f"!!! خطا: Timeout در ترجمه محتوا (تلاش {attempt + 1})."); sys.stdout.flush()
@@ -296,43 +282,64 @@ def remove_newsbtc_links(text):
     if not text: return ""
     return re.sub(r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>', r'\2', text, flags=re.IGNORECASE)
 
-def replace_filtered_images_in_content_with_base64(content_html):
-    if not content_html: return ""
-    print(">>> بررسی و تبدیل عکس‌های فیلترشده در *محتوای اصلی* به Base64...")
-    sys.stdout.flush(); soup = BeautifulSoup(content_html, "html.parser"); images = soup.find_all("img")
-    modified_flag = False; processed_count = 0; found_filtered_domains_count = 0
+# --- تابع اصلاح شده برای استفاده از پراکسی ---
+def replace_filtered_images_with_proxy(content_html):
+    """
+    این تابع آدرس عکس‌هایی که از دامنه‌های فیلتر شده هستند را
+    با استفاده از یک سرویس پراکسی رایگان بازنویسی می‌کند تا بدون نیاز به ذخیره‌سازی،
+    برای کاربر نمایش داده شوند.
+    """
+    if not content_html:
+        return ""
+        
+    print(">>> بررسی و بازنویسی آدرس عکس‌های فیلتر شده با پراکسی...")
+    sys.stdout.flush()
+    soup = BeautifulSoup(content_html, "html.parser")
+    images = soup.find_all("img")
+    modified_flag = False
+    processed_count = 0
+    found_filtered_domains_count = 0
+    
+    # لیست دامنه‌هایی که می‌خواهیم پراکسی شوند
     filtered_domains_for_content = ["twimg.com", "i0.wp.com", "i1.wp.com", "i2.wp.com", "pbs.twimg.com"]
+    
     for i, img_tag in enumerate(images):
         img_src = img_tag.get("src", "")
+        
+        # فقط لینک‌های معتبر اینترنتی را بررسی کن
         if not img_src or not img_src.startswith(('http://', 'https://')):
-            if not img_src.startswith('data:'): continue
+            continue
+
         is_on_filtered_domain = any(domain_part in img_src for domain_part in filtered_domains_for_content)
+        
         if is_on_filtered_domain:
             found_filtered_domains_count += 1
-            print(f"--- عکس محتوا {i+1} از دامنه فیلتر شده ({img_src[:70]}...) در حال تبدیل به Base64...")
+            print(f"--- عکس محتوا {i+1} از دامنه فیلتر شده ({img_src[:70]}...) در حال بازنویسی با پراکسی...")
             sys.stdout.flush()
-            try:
-                headers = {'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'}
-                response = requests.get(img_src, stream=True, timeout=REQUEST_TIMEOUT, headers=headers, verify=True)
-                response.raise_for_status(); content_type_header = response.headers.get('content-type', '').split(';')[0].strip()
-                if not content_type_header or not content_type_header.startswith('image/'):
-                    file_extension = os.path.splitext(urlparse(img_src).path)[1].lower()
-                    mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.avif': 'image/avif'}
-                    content_type_header = mime_map.get(file_extension, 'image/jpeg')
-                image_binary_content = response.content
-                base64_encoded_string = base64.b64encode(image_binary_content).decode('utf-8')
-                img_tag['src'] = f"data:{content_type_header};base64,{base64_encoded_string}"
-                if not img_tag.get('alt'): img_tag['alt'] = "تصویر از محتوا (تبدیل شده)"
-                modified_flag = True; processed_count += 1
-            except Exception as e_img_conv: print(f"!!! خطا در دانلود یا تبدیل عکس محتوا {img_src[:70]}... : {e_img_conv}"); sys.stdout.flush()
-    print(f"<<< تبدیل عکس‌های فیلترشده در محتوا تمام شد. {processed_count}/{found_filtered_domains_count} عکس با موفقیت تبدیل شد.")
-    sys.stdout.flush(); return str(soup) if modified_flag else content_html
+            
+            # --- تغییر اصلی اینجاست ---
+            # دیگر خبری از دانلود و Base64 نیست، فقط آدرس را بازنویسی می‌کنیم
+            proxied_url = f"https://wsrv.nl/?url={img_src}"
+            img_tag['src'] = proxied_url
+            # --- پایان تغییر اصلی ---
+            
+            if not img_tag.get('alt'):
+                img_tag['alt'] = "تصویر پراکسی شده از محتوا"
+                
+            modified_flag = True
+            processed_count += 1
+            
+    print(f"<<< بازنویسی آدرس‌ها تمام شد. {processed_count}/{found_filtered_domains_count} عکس با موفقیت پراکسی شد.")
+    sys.stdout.flush()
+    
+    # اگر تغییری رخ داده بود، محتوای جدید را برگردان
+    return str(soup) if modified_flag else content_html
 
 def crawl_captions(post_url):
     print(f">>> شروع کرال و ترجمه کپشن‌ها از: {post_url}")
     sys.stdout.flush(); captions_data_list = []
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/553.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'} # Adjusted User-Agent
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/553.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'}
         response = requests.get(post_url, timeout=REQUEST_TIMEOUT, headers=headers)
         response.raise_for_status(); soup = BeautifulSoup(response.content, "html.parser")
         figures = soup.find_all("figure"); print(f"--- تعداد <figure> یافت شده برای بررسی کپشن: {len(figures)}"); sys.stdout.flush()
@@ -368,7 +375,6 @@ def add_captions_to_images(content_html, crawled_captions_list):
     used_caption_indices = set()
     captions_directly_added_count = 0
 
-    # اگر عکسی در محتوا نباشد، کپشن‌های باقی‌مانده را به انتها اضافه کن
     if not images_in_content and crawled_captions_list:
         print("--- هیچ عکسی در محتوا یافت نشد، کپشن‌ها به انتها اضافه می‌شوند.")
         remaining_captions_html = "".join([item['caption'] for item in crawled_captions_list])
@@ -380,23 +386,21 @@ def add_captions_to_images(content_html, crawled_captions_list):
         return str(soup)
 
     for img_content_idx, img_tag_in_content in enumerate(images_in_content):
-        # --- بخش کلیدی اضافه شده ---
-        # بررسی می‌کنیم آیا تصویر از قبل کپشن دارد یا نه
         parent_figure = img_tag_in_content.find_parent('figure')
         if parent_figure and parent_figure.find('figcaption'):
             print(f"--- عکس {img_content_idx + 1} از قبل کپشن دارد، از آن صرف نظر می‌شود.")
-            continue  # به سراغ عکس بعدی می‌رویم
+            continue
 
         current_img_src = img_tag_in_content.get("src", "")
         if not current_img_src:
             continue
 
         normalized_content_img_src = ""
-        if not current_img_src.startswith("data:"):
+        # آدرس‌های پراکسی شده را نرمال‌سازی نکن
+        if not current_img_src.startswith("https://wsrv.nl") and not current_img_src.startswith("data:"):
             parsed_content_img_url = urlparse(unquote(current_img_src))
             normalized_content_img_src = parsed_content_img_url._replace(query='').geturl()
 
-        # پیدا کردن کپشن مطابق با این عکس از لیست کرال شده
         matched_caption_data = None
         matched_caption_original_index = -1
         for cap_original_idx, caption_data in enumerate(crawled_captions_list):
@@ -413,7 +417,6 @@ def add_captions_to_images(content_html, crawled_captions_list):
             caption_html_to_insert = matched_caption_data["caption"]
             new_figure_tag = soup.new_tag("figure", style="margin:1em auto; text-align:center; max-width:100%;")
 
-            # اگر عکس داخل یک تگ <p> یا <div> خالی بود، آن تگ را با figure جایگزین می‌کنیم
             img_parent = img_tag_in_content.parent
             if img_parent and img_parent.name in ['p', 'div'] and not img_parent.get_text(strip=True) and len(list(img_parent.children)) == 1:
                 img_parent.replace_with(new_figure_tag)
@@ -431,7 +434,6 @@ def add_captions_to_images(content_html, crawled_captions_list):
                 for child_node_cap in body_or_root_of_caption.contents:
                     final_figcaption_element.append(child_node_cap.extract())
 
-            # اعمال استایل به کپشن
             current_fig_style = final_figcaption_element.get('style', '')
             fig_style_dict = {s.split(':')[0].strip(): s.split(':')[1].strip() for s in current_fig_style.split(';') if ':' in s and s.strip()}
             fig_style_dict.update({"text-align": "center", "font-size": "0.9em", "margin-top": "0.5em", "color": "#555", "line-height": "1.4"})
@@ -441,7 +443,6 @@ def add_captions_to_images(content_html, crawled_captions_list):
             used_caption_indices.add(matched_caption_original_index)
             captions_directly_added_count += 1
 
-    # افزودن کپشن‌های باقی‌مانده (که عکسی برایشان پیدا نشد) به انتهای پست
     remaining_captions_html_output = ""
     remaining_captions_added_count = 0
     for i, item_rem in enumerate(crawled_captions_list):
@@ -460,21 +461,12 @@ def add_captions_to_images(content_html, crawled_captions_list):
     print(f"<<< افزودن کپشن‌ها تمام شد. {captions_directly_added_count} به عکس‌ها اضافه شد، {remaining_captions_added_count} به انتها."); sys.stdout.flush()
     return str(soup)
 
-#----------------------------------
-
-
 def remove_boilerplate_sections(html_content):
-    """
-    با استفاده از BeautifulSoup بخش‌های اضافی مانند "Related Reading" را
-    بدون حذف کردن محتوای اصلی، به صورت هوشمند حذف می‌کند.
-    """
     if not html_content:
         return ""
     
     soup = BeautifulSoup(html_content, 'html.parser')
     
-    # لیست کلمات کلیدی برای شناسایی و حذف بخش‌های اضافی
-    # از حروف کوچک استفاده شده تا جستجو به حروف بزرگ و کوچک حساس نباشد
     boilerplate_keywords = [
         'related reading',
         'read also',
@@ -483,25 +475,18 @@ def remove_boilerplate_sections(html_content):
         'disclaimer:',
     ]
     
-    # تگ‌های مختلفی که ممکن است حاوی این متون باشند را بررسی می‌کنیم
     tags_to_check = soup.find_all(['p', 'div', 'h2', 'h3'])
     
     for tag in tags_to_check:
-        # متن داخل تگ را به حروف کوچک تبدیل کن تا مقایسه راحت‌تر باشد
         tag_text_lower = tag.get_text(strip=True).lower()
         
-        # اگر متن تگ با یکی از کلمات کلیدی شروع می‌شد، آن تگ را حذف کن
         if any(tag_text_lower.startswith(keyword) for keyword in boilerplate_keywords):
             print(f"--- حذف بخش اضافی: {tag.get_text(strip=True)[:70]}...")
-            tag.decompose() # این دستور تگ را به طور کامل از سند حذف می‌کند
+            tag.decompose()
             
     return str(soup)
     
-    
-    #-------------------------------------------
-
-
-def post_to_wordpress(title_for_wp, content_for_wp, original_english_title, thumbnail_url_for_plugin, source_url_for_post, status="publish"): # اضافه شدن source_url_for_post
+def post_to_wordpress(title_for_wp, content_for_wp, original_english_title, thumbnail_url_for_plugin, source_url_for_post, status="publish"):
     print(f">>> شروع ارسال پست '{title_for_wp[:50]}...' به endpoint سفارشی وردپرس...")
     sys.stdout.flush()
 
@@ -513,7 +498,7 @@ def post_to_wordpress(title_for_wp, content_for_wp, original_english_title, thum
     headers = {
         'Authorization': f'Basic {token.decode("utf-8")}',
         'Content-Type': 'application/json',
-        'User-Agent': 'Python-Rss-To-WordPress-Script/3.3-TV-Resolve'
+        'User-Agent': 'Python-Rss-To-WordPress-Script/3.4-Proxy'
     }
 
     post_data = {
@@ -522,7 +507,7 @@ def post_to_wordpress(title_for_wp, content_for_wp, original_english_title, thum
         "slug": english_slug,
         "category_id": 69,
         "thumbnail_url": thumbnail_url_for_plugin if thumbnail_url_for_plugin else "",
-        "source_url": source_url_for_post # ارسال source_url به پلاگین
+        "source_url": source_url_for_post
     }
 
     print(f"--- در حال ارسال داده به endpoint سفارشی: {WORDPRESS_CUSTOM_POST_API_ENDPOINT}")
@@ -558,7 +543,6 @@ def post_to_wordpress(title_for_wp, content_for_wp, original_english_title, thum
 
     raise ValueError(f"ارسال پست '{title_for_wp[:50]}...' پس از تمام تلاش‌ها ناموفق بود.")
 
-# --- تابع هوشمند برای استخراج لینک مستقیم عکس از TradingView (نسخه نهایی و جامع) ---
 def resolve_tradingview_links(html_content):
     if not html_content:
         return ""
@@ -568,10 +552,7 @@ def resolve_tradingview_links(html_content):
 
     soup = BeautifulSoup(html_content, "html.parser")
 
-    # لیستی برای نگهداری تگ‌های عکسی که باید اصلاح شوند و URL صفحه‌ای که باید بررسی شود
     targets_to_process = []
-
-    # حالت اول: پیدا کردن تگ‌های <a> که به چارت لینک می‌دهند
     chart_links = soup.find_all("a", href=re.compile(r"https?://(www\.)?tradingview\.com/x/"))
     for link_tag in chart_links:
         page_url = link_tag.get('href')
@@ -579,10 +560,8 @@ def resolve_tradingview_links(html_content):
         if page_url and img_tag:
             targets_to_process.append({'img_tag': img_tag, 'page_url': page_url, 'link_tag': link_tag})
 
-    # حالت دوم: پیدا کردن تگ‌های <img> که مستقیماً به صفحه چارت لینک دارند
     direct_img_links = soup.find_all("img", src=re.compile(r"https?://(www\.)?tradingview\.com/x/"))
     for img_tag in direct_img_links:
-        # برای جلوگیری از پردازش مجدد، چک می‌کنیم که قبلا اضافه نشده باشد
         is_already_targeted = any(target['img_tag'] is img_tag for target in targets_to_process)
         if not is_already_targeted:
             page_url = img_tag.get('src')
@@ -597,7 +576,7 @@ def resolve_tradingview_links(html_content):
     for target in targets_to_process:
         img_tag_to_modify = target['img_tag']
         page_url_to_scrape = target['page_url']
-        link_tag_to_modify = target.get('link_tag') # ممکن است وجود نداشته باشد
+        link_tag_to_modify = target.get('link_tag')
 
         print(f"--- در حال بررسی لینک TradingView: {page_url_to_scrape[:70]}...")
         try:
@@ -612,11 +591,9 @@ def resolve_tradingview_links(html_content):
                 direct_image_url = meta_tag["content"]
                 print(f"--- لینک مستقیم یافت شد: {direct_image_url}")
 
-                # آدرس عکس اصلی را اصلاح می‌کنیم
                 img_tag_to_modify['src'] = direct_image_url
                 resolved_count += 1
 
-                # اگر تگ لینک والد وجود داشت، آن را هم اصلاح می‌کنیم
                 if link_tag_to_modify:
                     link_tag_to_modify['href'] = direct_image_url
         except requests.exceptions.RequestException as e:
@@ -629,17 +606,13 @@ def resolve_tradingview_links(html_content):
 
     return str(soup)
 
-# --- توابع جدید برای مدیریت لینک‌های پردازش شده در دیتابیس وردپرس ---
 def load_processed_links_from_wordpress():
-    """
-    لینک‌های پردازش شده را از Endpoint REST API وردپرس دریافت می‌کند.
-    """
     print(f"--- در حال دریافت لیست لینک‌های پردازش شده از وردپرس ({WORDPRESS_PROCESSED_LINKS_GET_API_ENDPOINT})...")
     credentials = f"{WORDPRESS_USER}:{WORDPRESS_PASS}"
     token = base64.b64encode(credentials.encode())
     headers = {
         'Authorization': f'Basic {token.decode("utf-8")}',
-        'User-Agent': 'Python-Rss-To-WordPress-Script/3.3-TV-Resolve'
+        'User-Agent': 'Python-Rss-To-WordPress-Script/3.4-Proxy'
     }
     try:
         response = requests.get(
@@ -647,30 +620,25 @@ def load_processed_links_from_wordpress():
             headers=headers,
             timeout=REQUEST_TIMEOUT
         )
-        response.raise_for_status() # بررسی خطاهای HTTP
+        response.raise_for_status()
         processed_links = response.json()
         if not isinstance(processed_links, list):
             print(f"!!! هشدار: پاسخ API لینک‌های پردازش شده لیست نیست، نوع آن: {type(processed_links)}. در حال فرض لیست خالی.")
-            return set() # برگرداندن یک مجموعه خالی
+            return set()
         print(f"--- {len(processed_links)} لینک پردازش شده از وردپرس دریافت شد.")
-        return set(processed_links) # تبدیل به مجموعه برای جستجوی سریعتر
+        return set(processed_links)
     except requests.exceptions.RequestException as e:
         print(f"!!! خطای شدید در دریافت لینک‌های پردازش شده از وردپرس: {e}")
-        # این یک خطای بحرانی است، چون بدون لیست نمی‌توان از تکرار جلوگیری کرد.
-        # می‌توانید اینجا یک ValueError ایجاد کنید تا اسکریپت متوقف شود.
         raise ValueError(f"امکان دریافت لیست لینک‌های پردازش شده از وردپرس وجود ندارد: {e}")
 
 def save_processed_link_to_wordpress(link_url):
-    """
-    لینک جدید را به Endpoint REST API وردپرس برای ذخیره اضافه می‌کند.
-    """
     print(f"--- در حال افزودن لینک '{link_url}' به لیست پردازش شده در وردپرس...")
     credentials = f"{WORDPRESS_USER}:{WORDPRESS_PASS}"
     token = base64.b64encode(credentials.encode())
     headers = {
         'Authorization': f'Basic {token.decode("utf-8")}',
         'Content-Type': 'application/json',
-        'User-Agent': 'Python-Rss-To-WordPress-Script/3.3-TV-Resolve'
+        'User-Agent': 'Python-Rss-To-WordPress-Script/3.4-Proxy'
     }
     payload = {"link": link_url}
     try:
@@ -680,13 +648,12 @@ def save_processed_link_to_wordpress(link_url):
             json=payload,
             timeout=REQUEST_TIMEOUT
         )
-        response.raise_for_status() # بررسی خطاهای HTTP (مثل 401 Unauthorized)
+        response.raise_for_status()
         response_data = response.json()
         print(f"--- لینک با موفقیت در وردپرس اضافه شد: {response_data.get('message', 'بدون پیام')}")
         return True
     except requests.exceptions.RequestException as e:
         print(f"!!! خطای شدید در افزودن لینک '{link_url}' به وردپرس: {e}")
-        # این یک خطای بحرانی است، زیرا اگر لینک ذخیره نشود، می‌تواند منجر به تکرار شود.
         raise ValueError(f"امکان ذخیره لینک '{link_url}' در وردپرس وجود ندارد: {e}")
 
 # --- شروع اسکریپت اصلی ---
@@ -702,13 +669,10 @@ if __name__ == "__main__":
     post_original_link_from_feed = None
 
     try:
-        # مرحله ۰: بارگذاری لینک‌های قبلی و بررسی تکراری بودن (استفاده از API وردپرس)
         print("\n>>> مرحله ۰: بررسی پست‌های تکراری...");
-        # تغییر کلیدی: فراخوانی تابع جدید برای خواندن لینک‌ها از وردپرس
         processed_links = load_processed_links_from_wordpress() 
         print(f"--- {len(processed_links)} لینک پردازش شده از قبل یافت شد.")
 
-        # مرحله ۱: دریافت فید RSS
         print("\n>>> مرحله ۱: دریافت و تجزیه فید RSS...");
         feed_data_parsed = feedparser.parse(RSS_FEED_URL)
         if feed_data_parsed.bozo: print(f"--- هشدار در تجزیه فید: {feed_data_parsed.bozo_exception}")
@@ -721,19 +685,17 @@ if __name__ == "__main__":
         if not post_original_link_from_feed:
             raise ValueError("پست یافت شده فاقد لینک منبع (link) است. امکان بررسی تکراری بودن وجود ندارد.")
 
-        # بررسی اصلی تکراری بودن
         if post_original_link_from_feed in processed_links:
             print("\n" + "*"*60)
             print(f"*** پست تکراری یافت شد. این پست قبلاً پردازش شده است. ***")
             print(f"*** عنوان: {original_post_title_english_for_error}")
             print(f"*** لینک: {post_original_link_from_feed}")
             print("*"*60 + "\n")
-            sys.exit(0) # خروج موفقیت‌آمیز برای پست تکراری
+            sys.exit(0)
 
         print(f"--- جدیدترین پست (غیر تکراری) انتخاب شد: '{original_post_title_english_for_error}' (لینک: {post_original_link_from_feed})")
         print("<<< مرحله ۱ کامل شد.");
 
-        # استخراج URL تصویر بندانگشتی
         thumbnail_url_for_plugin_final = None
         if hasattr(latest_post_from_feed, 'media_content') and latest_post_from_feed.media_content:
             raw_thumbnail_url = latest_post_from_feed.media_content[0].get('url', '')
@@ -745,19 +707,16 @@ if __name__ == "__main__":
         else:
             print("--- هیچ تصویر بندانگشتی (media_content) در فید برای پلاگین یافت نشد.")
 
-        # مرحله ۲: کرال کردن و ترجمه کپشن‌ها
         print("\n>>> مرحله ۲: کرال کردن و ترجمه کپشن‌ها...");
         crawled_and_translated_captions = crawl_captions(post_original_link_from_feed)
         print(f"<<< مرحله ۲ کامل شد (تعداد کپشن نهایی: {len(crawled_and_translated_captions)}).");
 
-        # مرحله ۳: ترجمه عنوان پست
         print("\n>>> مرحله ۳: ترجمه عنوان پست...");
         final_translated_title_for_error = translate_title_with_gemini(original_post_title_english_for_error)
         if not final_translated_title_for_error: raise ValueError("ترجمه عنوان پست ناموفق بود یا خالی بازگشت.")
         final_translated_title_for_error = final_translated_title_for_error.replace("**", "").replace("`", "")
         print(f"--- عنوان ترجمه‌شده نهایی: {final_translated_title_for_error}"); print("<<< مرحله ۳ کامل شد.");
 
-        # مرحله ۴: پردازش کامل محتوای اصلی (با ترتیب اصلاح شده)
         print("\n>>> مرحله ۴: پردازش کامل محتوای اصلی...");
         raw_content_html_from_feed = ""
         if 'content' in latest_post_from_feed and latest_post_from_feed.content:
@@ -767,30 +726,21 @@ if __name__ == "__main__":
         if not raw_content_html_from_feed: raise ValueError("محتوای اصلی (content یا summary) از فید یافت نشد.")
         print(f"--- محتوای خام از فید دریافت شد (طول: {len(raw_content_html_from_feed)} کاراکتر).");
 
-        # مرحله ۱ پاکسازی: حذف هوشمند بخش‌های "Related Reading" با تابع جدید
         content_without_boilerplate = remove_boilerplate_sections(raw_content_html_from_feed)
-
-        # مرحله ۲ پاکسازی: حذف لینک‌های داخلی از محتوای باقی‌مانده و تمیز شده
         cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
-        # ۱. پردازش‌های اولیه تصویر (بدون تغییر لینک اصلی)
-        content_after_base64_conversion = replace_filtered_images_in_content_with_base64(cleaned_content_after_regex)
+        # مرحله ۱ پردازش تصویر: بازنویسی لینک‌های فیلتر شده با پراکسی
+        content_with_proxied_images = replace_filtered_images_with_proxy(cleaned_content_after_regex)
 
-        # ۲. جایگزینی تصاویر با Placeholder و ترجمه
-        content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_after_base64_conversion)
+        # مرحله ۲ پردازش تصویر: جایگزینی تصاویر با Placeholder و ترجمه
+        content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_proxied_images)
         translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
         if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود یا خالی بازگشت.")
 
-        # ۳. بازگرداندن تصاویر از Placeholder (با لینک‌های اصلی)
         translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
-
-        # ۴. افزودن کپشن‌ها (در این مرحله URLها تطابق دارند)
         content_with_captions_added = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
-        
-        # ۵. و در نهایت، تصحیح لینک‌های TradingView پس از افزودن کپشن
         content_final_after_tv_resolve = resolve_tradingview_links(content_with_captions_added)
 
-        # ادامه پردازش نهایی روی محتوای کاملاً درست شده
         final_processed_soup = BeautifulSoup(content_final_after_tv_resolve, "html.parser")
         for img_tag_in_final_soup in final_processed_soup.find_all("img"):
             img_tag_in_final_soup['style'] = "max-width:100%; height:auto; display:block; margin:10px auto; border-radius:4px;"
@@ -801,12 +751,10 @@ if __name__ == "__main__":
         final_processed_content_html = str(final_processed_soup)
         print("<<< مرحله ۴ (پردازش محتوا) کامل شد.");
 
-        # مرحله ۵: آماده‌سازی ساختار نهایی HTML پست
         print("\n>>> مرحله ۵: آماده‌سازی ساختار نهایی HTML پست...");
         list_of_html_components = []
         if final_processed_content_html: list_of_html_components.append(f'<div style="line-height: 1.75; font-size: 17px; text-align: justify;">{final_processed_content_html}</div>')
         
-        # افزودن متن سلب مسئولیت (Disclaimer) در انتهای پست
         disclaimer_text = '<strong>سلب مسئولیت:</strong> احتمال اشتباه در تحلیل ها وجود دارد و هیچ تحلیلی قطعی نیست و همه بر پایه احتمالات میباشند. لطفا در خرید و فروش خود دقت کنید.'
         disclaimer_html_code = (
             f'<div style="color: #c00; '
@@ -827,21 +775,18 @@ if __name__ == "__main__":
         final_html_payload_for_wordpress = "".join(list_of_html_components)
         print("<<< مرحله ۵ (ساختار نهایی) کامل شد.");
 
-        # مرحله ۶: ارسال پست به وردپرس
         print("\n>>> مرحله ۶: ارسال پست به وردپرس...");
         post_response = post_to_wordpress(
             title_for_wp=final_translated_title_for_error,
             content_for_wp=final_html_payload_for_wordpress,
             original_english_title=original_post_title_english_for_error,
             thumbnail_url_for_plugin=thumbnail_url_for_plugin_final,
-            source_url_for_post=post_original_link_from_feed # ارسال source_url
+            source_url_for_post=post_original_link_from_feed
         )
         print("<<< مرحله ۶ (ارسال به وردپرس) کامل شد.");
 
-        # مرحله ۷: ذخیره لینک در صورت موفقیت (استفاده از API وردپرس)
         if post_response and post_response.get("post_id"):
             print("\n>>> مرحله ۷: ذخیره کردن لینک منبع برای جلوگیری از تکرار...");
-            # تغییر کلیدی: فراخوانی تابع جدید برای ذخیره لینک در وردپرس
             save_processed_link_to_wordpress(post_original_link_from_feed)
             print(f"--- لینک '{post_original_link_from_feed[:70]}...' با موفقیت در وردپرس ثبت شد.")
             print("<<< مرحله ۷ کامل شد.")
@@ -856,7 +801,7 @@ if __name__ == "__main__":
         tb_lines = traceback.format_exception(type(global_exception), global_exception, global_exception.__traceback__)
         for line in tb_lines[-15:]: print(line.strip())
         print("!"*70 + "\n");
-        sys.exit(1) # اضافه شدن sys.exit(1) برای خروج با کد خطا در صورت مشکل
+        sys.exit(1)
 
     finally:
         total_script_execution_time = time.time() - main_script_start_time
