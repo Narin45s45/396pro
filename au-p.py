@@ -349,15 +349,29 @@ if __name__ == "__main__":
         cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
         # --- اصلاح ۲: ترتیب صحیح اجرای توابع ---
+# ... (کدهای قبلی)
         content_after_tv_resolve = resolve_tradingview_links(cleaned_content_after_regex)
-        content_with_proxied_images = replace_all_external_images_with_obfuscated_proxy(content_after_tv_resolve, WORDPRESS_MAIN_URL, IMAGE_PROXY_URL)
+
+        # ۱. ابتدا کپشن‌ها را به عکس‌های با آدرس اصلی اضافه کن
+        content_with_captions_added = add_captions_to_images(content_after_tv_resolve, crawled_and_translated_captions)
+
+        # ۲. حالا تمام عکس‌ها (که حالا کپشن هم دارند) را پراکسی کن
+        content_with_proxied_images = replace_all_external_images_with_obfuscated_proxy(content_with_captions_added, WORDPRESS_MAIN_URL, IMAGE_PROXY_URL)
+        
+        # ۳. ادامه روند با محتوایی که هم کپشن دارد و هم پراکسی شده است
         content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_proxied_images)
         translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
         if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود.")
         translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
-        content_with_captions_added = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
         
-        final_processed_soup = BeautifulSoup(content_with_captions_added, "html.parser")
+        # متغیر نهایی ما حالا translated_content_with_images_restored است
+        final_processed_soup = BeautifulSoup(translated_content_with_images_restored, "html.parser")
+        # ... (ادامه کد) ...
+
+
+
+
+        
         for img_tag_in_final_soup in final_processed_soup.find_all("img"):
             img_tag_in_final_soup['style'] = "max-width:100%; height:auto; display:block; margin:10px auto; border-radius:4px;"
             if not img_tag_in_final_soup.get('alt'): img_tag_in_final_soup['alt'] = final_translated_title_for_error
