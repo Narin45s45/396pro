@@ -134,7 +134,7 @@ def replace_images_with_placeholders(html_content):
     return str(soup), placeholder_map
 
 def restore_images_from_placeholders(html_content, placeholder_map):
-    print("--- شروع بازگرداندن عکس‌ها از Placeholder (روش کامنت)...")
+    print("--- شروع بازگرداندن عکس‌ها از Placeholder (روش بهینه re)...")
     sys.stdout.flush()
     if not placeholder_map:
         return html_content
@@ -144,24 +144,19 @@ def restore_images_from_placeholders(html_content, placeholder_map):
     not_found_count = 0
 
     for placeholder_uuid, img_tag_str in placeholder_map.items():
-        # کامنتی که باید دنبال آن بگردیم
-        placeholder_comment = f""
-        
-        # از جایگزینی رشته‌ای ساده استفاده می‌کنیم که بسیار قابل اعتماد است
-        if placeholder_comment in modified_content:
-            modified_content = modified_content.replace(placeholder_comment, img_tag_str)
+        # از یک عبارت باقاعده (Regex) برای پیدا کردن کامنت استفاده می‌کنیم
+        # این روش بسیار بهینه‌تر از نظر حافظه است
+        placeholder_regex = re.compile(fr"")
+
+        # با استفاده از re.sub، جایگزینی را انجام می‌دهیم
+        # count=1 تضمین می‌کند که فقط اولین مورد پیدا شده جایگزین شود
+        modified_content, num_replacements = placeholder_regex.subn(img_tag_str, modified_content, count=1)
+
+        if num_replacements > 0:
             count += 1
         else:
-            # این بخش برای پیدا کردن کامنت‌هایی است که شاید Gemini کمی تغییرشان داده باشد
-            # (مثلاً فاصله اضافی حذف یا اضافه کرده باشد)
-            import re
-            placeholder_regex = re.compile(fr"")
-            if placeholder_regex.search(modified_content):
-                modified_content = placeholder_regex.sub(img_tag_str, modified_content, count=1)
-                count += 1
-            else:
-                not_found_count += 1
-                print(f"--- هشدار (Restore): Placeholder با شناسه '{placeholder_uuid}' یافت نشد!")
+            not_found_count += 1
+            print(f"--- هشدار (Restore): Placeholder با شناسه '{placeholder_uuid}' یافت نشد!")
 
     print(f"--- {count} عکس از Placeholder بازگردانده شد.")
     if not_found_count > 0:
