@@ -737,11 +737,11 @@ if __name__ == "__main__":
         translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
         if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود یا خالی بازگشت.")
 
-       translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
-       content_with_captions_added = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
+        translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
+        content_with_captions_added = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
 
-# چون تابع resolve_tradingview_links بالاتر اجرا شده، متغیر نهایی ما content_with_captions_added است
-       final_processed_soup = BeautifulSoup(content_with_captions_added, "html.parser")
+          # چون تابع resolve_tradingview_links بالاتر اجرا شده، متغیر نهایی ما content_with_captions_added است
+        final_processed_soup = BeautifulSoup(content_with_captions_added, "html.parser")
 # ...
 
 
