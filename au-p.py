@@ -329,19 +329,23 @@ if __name__ == "__main__":
         thumbnail_url_for_plugin_final = None
         if hasattr(latest_post_from_feed, 'media_content') and latest_post_from_feed.media_content:
             raw_thumbnail_url = latest_post_from_feed.media_content[0].get('url', '')
-            if raw_thumbnail_url and raw_thumbnail_url.startswith(('http://', 'https://')):
+            if raw_thumbnail_url and raw_thumbnail_url.startswith(('http://', 'httpshttps://')):
                 
-                # --- شروع تغییر ---
-                # بهینه سازی: آدرس تصویر شاخص را هم از پراکسی خودمان عبور می‌دهیم
+                # --- شروع کد صحیح ---
                 print(f"--- URL خام تصویر شاخص یافت شد: {raw_thumbnail_url}")
+                
+                # ۱. کدگذاری آدرس تصویر شاخص
                 encoded_thumbnail_url = base64.urlsafe_b64encode(raw_thumbnail_url.encode('utf-8')).decode('utf-8')
                 
-                # آدرس پراکسی شخصی خود را اینجا قرار دهید
+                # ۲. ساخت لینک پراکسی شده با ساب‌دامین شما
+                # مطمئن شوید آدرس پراکسی شما درست است
                 proxied_thumbnail_url = f"https://img.arzitals.ir/?data={encoded_thumbnail_url}" 
                 
+                # ۳. استفاده از لینک پراکسی شده برای ارسال به وردپرس
                 thumbnail_url_for_plugin_final = proxied_thumbnail_url
+                
                 print(f"--- URL پراکسی شده نهایی برای تصویر شاخص: {thumbnail_url_for_plugin_final}")
-                # --- پایان تغییر ---
+                # --- پایان کد صحیح ---
 
             else:
                 print(f"--- هشدار: URL تصویر بندانگشتی ('{raw_thumbnail_url}') از فید برای پلاگین معتبر نیست.")
