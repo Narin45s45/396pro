@@ -468,7 +468,7 @@ def remove_boilerplate_sections(html_content):
         'related reading',
         'read also',
         'see also',
-        'featured image from',
+        # 'featured image from', # این خط را کامنت یا حذف کنید
         'disclaimer:',
     ]
     
