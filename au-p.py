@@ -324,10 +324,30 @@ if __name__ == "__main__":
         print(f"--- جدیدترین پست: '{original_post_title_english_for_error}'")
         print("<<< مرحله ۱ کامل شد.");
 
+        
+     # ... (کد مربوط به مرحله ۱)
         thumbnail_url_for_plugin_final = None
         if hasattr(latest_post_from_feed, 'media_content') and latest_post_from_feed.media_content:
             raw_thumbnail_url = latest_post_from_feed.media_content[0].get('url', '')
-            if raw_thumbnail_url: thumbnail_url_for_plugin_final = raw_thumbnail_url
+            if raw_thumbnail_url and raw_thumbnail_url.startswith(('http://', 'https://')):
+                
+                # --- شروع تغییر ---
+                # بهینه سازی: آدرس تصویر شاخص را هم از پراکسی خودمان عبور می‌دهیم
+                print(f"--- URL خام تصویر شاخص یافت شد: {raw_thumbnail_url}")
+                encoded_thumbnail_url = base64.urlsafe_b64encode(raw_thumbnail_url.encode('utf-8')).decode('utf-8')
+                
+                # آدرس پراکسی شخصی خود را اینجا قرار دهید
+                proxied_thumbnail_url = f"https://img.arzitals.ir/?data={encoded_thumbnail_url}" 
+                
+                thumbnail_url_for_plugin_final = proxied_thumbnail_url
+                print(f"--- URL پراکسی شده نهایی برای تصویر شاخص: {thumbnail_url_for_plugin_final}")
+                # --- پایان تغییر ---
+
+            else:
+                print(f"--- هشدار: URL تصویر بندانگشتی ('{raw_thumbnail_url}') از فید برای پلاگین معتبر نیست.")
+        else:
+            print("--- هیچ تصویر بندانگشتی (media_content) در فید برای پلاگین یافت نشد.")
+# ...
         
         print("\n>>> مرحله ۲: کرال و ترجمه کپشن‌ها...");
         crawled_and_translated_captions = crawl_captions(post_original_link_from_feed)
