@@ -347,10 +347,16 @@ if __name__ == "__main__":
         
         # ... (کدهای قبلی تا خط raw_content_html_from_feed)
 
+
+
+
+        
+      # ... (کدهای قبلی تا خط raw_content_html_from_feed)
+
         content_without_boilerplate = remove_boilerplate_sections(raw_content_html_from_feed)
         cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
-        # --- ترتیب نهایی و صحیح ---
+        # --- ترتیب نهایی و کاملاً صحیح ---
 
         # ۱. ابتدا لینک TradingView را به لینک مستقیم عکس تبدیل کن
         content_after_tv_resolve = resolve_tradingview_links(cleaned_content_after_regex)
@@ -363,29 +369,29 @@ if __name__ == "__main__":
         
         # ۴. ادامه روند با محتوایی که هم کپشن دارد و هم پراکسی شده است
         content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_proxied_images)
+        
         translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
         if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود.")
+        
         translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
         
         # متغیر نهایی ما حالا translated_content_with_images_restored است
         final_processed_soup = BeautifulSoup(translated_content_with_images_restored, "html.parser")
         
-        # ... (ادامه کد برای افزودن استایل و حذف پاراگراف خالی)
-        # ... (ادامه کد) ...
-
-
-
-
-        
         for img_tag_in_final_soup in final_processed_soup.find_all("img"):
             img_tag_in_final_soup['style'] = "max-width:100%; height:auto; display:block; margin:10px auto; border-radius:4px;"
-            if not img_tag_in_final_soup.get('alt'): img_tag_in_final_soup['alt'] = final_translated_title_for_error
+            if not img_tag_in_final_soup.get('alt'):
+                img_tag_in_final_soup['alt'] = final_translated_title_for_error
+        
         for p_tag_to_check in final_processed_soup.find_all('p'):
             if not p_tag_to_check.get_text(strip=True) and not p_tag_to_check.find(['img', 'br', 'hr', 'figure', 'iframe', 'script', 'blockquote']):
                 p_tag_to_check.decompose()
+        
         final_processed_content_html = str(final_processed_soup)
         print("<<< مرحله ۴ (پردازش محتوا) کامل شد.");
 
+
+        
         print("\n>>> مرحله ۵: آماده‌سازی ساختار نهایی HTML پست...");
         list_of_html_components = [f'<div style="line-height: 1.75; font-size: 17px; text-align: justify;">{final_processed_content_html}</div>']
         disclaimer_text = '<strong>سلب مسئولیت:</strong> احتمال اشتباه در تحلیل ها وجود دارد و هیچ تحلیلی قطعی نیست و همه بر پایه احتمالات میباشند. لطفا در خرید و فروش خود دقت کنید.'
