@@ -345,20 +345,23 @@ if __name__ == "__main__":
         elif 'summary' in latest_post_from_feed: raw_content_html_from_feed = latest_post_from_feed.summary
         if not raw_content_html_from_feed: raise ValueError("محتوای اصلی یافت نشد.")
         
+        # ... (کدهای قبلی تا خط raw_content_html_from_feed)
+
         content_without_boilerplate = remove_boilerplate_sections(raw_content_html_from_feed)
         cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
-        # --- اصلاح ۲: ترتیب صحیح اجرای توابع ---
-# ... (کدهای قبلی)
+        # --- ترتیب نهایی و صحیح ---
+
+        # ۱. ابتدا لینک TradingView را به لینک مستقیم عکس تبدیل کن
         content_after_tv_resolve = resolve_tradingview_links(cleaned_content_after_regex)
 
-        # ۱. ابتدا کپشن‌ها را به عکس‌های با آدرس اصلی اضافه کن
+        # ۲. سپس کپشن‌ها را به عکس‌های با آدرس اصلی اضافه کن
         content_with_captions_added = add_captions_to_images(content_after_tv_resolve, crawled_and_translated_captions)
 
-        # ۲. حالا تمام عکس‌ها (که حالا کپشن هم دارند) را پراکسی کن
+        # ۳. حالا تمام عکس‌ها (که حالا کپشن هم دارند) را پراکسی کن
         content_with_proxied_images = replace_all_external_images_with_obfuscated_proxy(content_with_captions_added, WORDPRESS_MAIN_URL, IMAGE_PROXY_URL)
         
-        # ۳. ادامه روند با محتوایی که هم کپشن دارد و هم پراکسی شده است
+        # ۴. ادامه روند با محتوایی که هم کپشن دارد و هم پراکسی شده است
         content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_proxied_images)
         translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
         if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود.")
@@ -366,6 +369,8 @@ if __name__ == "__main__":
         
         # متغیر نهایی ما حالا translated_content_with_images_restored است
         final_processed_soup = BeautifulSoup(translated_content_with_images_restored, "html.parser")
+        
+        # ... (ادامه کد برای افزودن استایل و حذف پاراگراف خالی)
         # ... (ادامه کد) ...
 
 
