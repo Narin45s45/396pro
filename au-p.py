@@ -724,21 +724,33 @@ if __name__ == "__main__":
         print(f"--- محتوای خام از فید دریافت شد (طول: {len(raw_content_html_from_feed)} کاراکتر).");
 
         content_without_boilerplate = remove_boilerplate_sections(raw_content_html_from_feed)
-        cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
-        # مرحله ۱ پردازش تصویر: بازنویسی لینک‌های فیلتر شده با پراکسی
-        content_with_proxied_images = replace_all_external_images_with_obfuscated_proxy(cleaned_content_after_regex, WORDPRESS_MAIN_URL, IMAGE_PROXY_URL)
 
-        # مرحله ۲ پردازش تصویر: جایگزینی تصاویر با Placeholder و ترجمه
-        content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_proxied_images)
-        translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
-        if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود یا خالی بازگشت.")
 
-        translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
-        content_with_captions_added = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
-        content_final_after_tv_resolve = resolve_tradingview_links(content_with_captions_added)
+        
+# ...
+cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
-        final_processed_soup = BeautifulSoup(content_final_after_tv_resolve, "html.parser")
+# ۱. ابتدا لینک TradingView را به لینک مستقیم عکس تبدیل کن
+content_after_tv_resolve = resolve_tradingview_links(cleaned_content_after_regex)
+
+# ۲. حالا تمام عکس‌ها (از جمله عکس اصلاح‌شده TradingView) را پراکسی کن
+content_with_proxied_images = replace_all_external_images_with_obfuscated_proxy(content_after_tv_resolve, WORDPRESS_MAIN_URL, IMAGE_PROXY_URL)
+
+# ۳. ادامه روند با محتوای پراکسی شده...
+content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_proxied_images)
+translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
+if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود یا خالی بازگشت.")
+
+translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
+content_with_captions_added = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
+
+# چون تابع resolve_tradingview_links بالاتر اجرا شده، متغیر نهایی ما content_with_captions_added است
+final_processed_soup = BeautifulSoup(content_with_captions_added, "html.parser")
+# ...
+
+
+        
         for img_tag_in_final_soup in final_processed_soup.find_all("img"):
             img_tag_in_final_soup['style'] = "max-width:100%; height:auto; display:block; margin:10px auto; border-radius:4px;"
             if not img_tag_in_final_soup.get('alt'): img_tag_in_final_soup['alt'] = final_translated_title_for_error
