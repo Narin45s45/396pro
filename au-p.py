@@ -107,43 +107,68 @@ def generate_english_slug(title_str):
     return slug if len(slug) > 4 else f"article-{uuid.uuid4().hex[:8]}"
 
 def replace_images_with_placeholders(html_content):
-    print("--- شروع جایگزینی عکس‌ها با Placeholder...")
+    print("--- شروع جایگزینی عکس‌ها با Placeholder (روش کامنت)...")
     sys.stdout.flush()
     if not html_content: return "", {}
+
     soup = BeautifulSoup(html_content, "html.parser")
     images = soup.find_all("img")
     placeholder_map = {}
     count = 0
     for i, img in enumerate(images):
+        from bs4 import Comment
         placeholder_uuid = str(uuid.uuid4())
-        placeholder_div_str = f'<div class="image-placeholder-container" id="placeholder-{placeholder_uuid}">Image-Placeholder-{placeholder_uuid}</div>'
+        
+        # تگ کامل عکس را در دیکشنری ذخیره می‌کنیم
         placeholder_map[placeholder_uuid] = str(img) 
-        img.replace_with(BeautifulSoup(placeholder_div_str, 'html.parser'))
+        
+        # یک کامنت HTML به عنوان Placeholder می‌سازیم
+        placeholder_comment_str = f" IMG_PLACEHOLDER_{placeholder_uuid} "
+        
+        # تگ عکس را با کامنت جایگزین می‌کنیم
+        img.replace_with(Comment(placeholder_comment_str))
         count += 1
-    print(f"--- {count} عکس با Placeholder جایگزین شد.")
+            
+    print(f"--- {count} عکس با Placeholder نوع کامنت جایگزین شد.")
     sys.stdout.flush()
     return str(soup), placeholder_map
 
 def restore_images_from_placeholders(html_content, placeholder_map):
-    print("--- شروع بازگرداندن عکس‌ها از Placeholder...")
+    print("--- شروع بازگرداندن عکس‌ها از Placeholder (روش کامنت)...")
     sys.stdout.flush()
-    if not placeholder_map: return html_content
-    soup = BeautifulSoup(html_content, 'html.parser')
+    if not placeholder_map:
+        return html_content
+
+    modified_content = html_content
     count = 0
     not_found_count = 0
+
     for placeholder_uuid, img_tag_str in placeholder_map.items():
-        target_div = soup.find('div', id=f"placeholder-{placeholder_uuid}")
-        if target_div:
-            target_div.replace_with(BeautifulSoup(img_tag_str, 'html.parser'))
+        # کامنتی که باید دنبال آن بگردیم
+        placeholder_comment = f""
+        
+        # از جایگزینی رشته‌ای ساده استفاده می‌کنیم که بسیار قابل اعتماد است
+        if placeholder_comment in modified_content:
+            modified_content = modified_content.replace(placeholder_comment, img_tag_str)
             count += 1
         else:
-            not_found_count += 1
-            print(f"--- هشدار (Restore): Placeholder با شناسه 'placeholder-{placeholder_uuid}' یافت نشد!")
+            # این بخش برای پیدا کردن کامنت‌هایی است که شاید Gemini کمی تغییرشان داده باشد
+            # (مثلاً فاصله اضافی حذف یا اضافه کرده باشد)
+            import re
+            placeholder_regex = re.compile(fr"")
+            if placeholder_regex.search(modified_content):
+                modified_content = placeholder_regex.sub(img_tag_str, modified_content, count=1)
+                count += 1
+            else:
+                not_found_count += 1
+                print(f"--- هشدار (Restore): Placeholder با شناسه '{placeholder_uuid}' یافت نشد!")
+
     print(f"--- {count} عکس از Placeholder بازگردانده شد.")
     if not_found_count > 0:
         print(f"--- هشدار جدی: {not_found_count} Placeholder در متن ترجمه شده برای بازگردانی یافت نشدند!")
+    
     sys.stdout.flush()
-    return str(soup)
+    return modified_content
 
 def translate_title_with_gemini(text_title):
     print(f">>> ترجمه عنوان با Gemini ({GEMINI_MODEL_NAME}): '{text_title[:50]}...'")
