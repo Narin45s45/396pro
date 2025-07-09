@@ -353,6 +353,8 @@ if __name__ == "__main__":
         
       # ... (کدهای قبلی تا خط raw_content_html_from_feed)
 
+# ... (کدهای قبلی تا خط raw_content_html_from_feed)
+
         content_without_boilerplate = remove_boilerplate_sections(raw_content_html_from_feed)
         cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
@@ -389,6 +391,8 @@ if __name__ == "__main__":
         
         final_processed_content_html = str(final_processed_soup)
         print("<<< مرحله ۴ (پردازش محتوا) کامل شد.");
+
+        # ... (ادامه کد شما تا انتها) ...
 
 
         
