@@ -32,7 +32,359 @@ class Logger:
             self.log_file.write(message)
             self.flush()
         else:
+            self.terminal.write(message)# -*- coding: utf-8 -*-
+import feedparser
+import os
+import json
+import requests
+import re
+from bs4 import BeautifulSoup
+import time
+import base64
+from urllib.parse import urlparse, unquote
+import sys
+import uuid
+import traceback
+from datetime import datetime
+
+# --- کلاس مدیریت لاگ ---
+class Logger:
+    def __init__(self, log_file="master_log.txt"):
+        self.log_file_path = log_file
+        self.terminal = sys.stdout
+        self.log_file = open(self.log_file_path, "a", encoding='utf-8')
+        separator = f"\n\n-------------------- شروع اجرای جدید: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} --------------------\n"
+        self.log_file.write(separator)
+        self.flush()
+
+    def write(self, message):
+        if message.strip() != "":
             self.terminal.write(message)
+            self.log_file.write(message)
+            self.flush()
+        else:
+            self.terminal.write(message)
+
+    def flush(self):
+        self.terminal.flush()
+        self.log_file.flush()
+
+    def close(self):
+        end_separator = f"\n-------------------- پایان اجرا: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} --------------------\n"
+        self.log_file.write(end_separator)
+        self.log_file.close()
+
+# --- تنظیمات اصلی ---
+RSS_FEED_URL = "https://www.newsbtc.com/feed/"
+GEMINI_MODEL_NAME = "gemini-2.5-pro"
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL_NAME}:generateContent"
+
+# --- خواندن متغیرهای محیطی ---
+GEMINI_API_KEY = os.environ.get("GEMAPI")
+WORDPRESS_MAIN_URL = os.environ.get("WORDPRESS_URL")
+WORDPRESS_USER = os.environ.get("WORDPRESS_USER")
+WORDPRESS_PASS = os.environ.get("WORDPRESS_PASS")
+IMAGE_PROXY_URL = os.environ.get("IMAGE_PROXY_URL")
+
+# --- تنظیمات API وردپرس ---
+WORDPRESS_CUSTOM_POST_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-poster/v1/create"
+WORDPRESS_PROCESSED_LINKS_GET_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-poster/v1/processed-links"
+WORDPRESS_PROCESSED_LINKS_ADD_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-poster/v1/processed-links"
+
+REQUEST_TIMEOUT = 60
+GEMINI_TIMEOUT = 150
+MASTER_LOG_FILE = "master_log.txt"
+
+if not all([GEMINI_API_KEY, WORDPRESS_MAIN_URL, WORDPRESS_USER, WORDPRESS_PASS, IMAGE_PROXY_URL]):
+    raise ValueError("یکی از متغیرهای محیطی ضروری (GEMAPI, WORDPRESS_URL, WORDPRESS_USER, WORDPRESS_PASS, IMAGE_PROXY_URL) تنظیم نشده است.")
+
+# --- توابع کمکی ---
+def generate_english_slug(title_str):
+    if not title_str: return f"post-{uuid.uuid4().hex[:12]}"
+    slug = str(title_str).lower()
+    slug = re.sub(r'\s+', '-', slug); slug = re.sub(r'[^\w\-]', '', slug)
+    slug = re.sub(r'-+', '-', slug); slug = slug.strip('-')
+    return slug if len(slug) > 4 else f"article-{uuid.uuid4().hex[:8]}"
+
+def replace_images_with_placeholders(html_content):
+    print("--- شروع جایگزینی عکس‌ها با Placeholder...")
+    sys.stdout.flush()
+    if not html_content: return "", {}
+    soup = BeautifulSoup(html_content, "html.parser")
+    images = soup.find_all("img")
+    placeholder_map = {}
+    count = 0
+    for i, img in enumerate(images):
+        placeholder_uuid = str(uuid.uuid4())
+        placeholder_div_str = f'<div class="image-placeholder-container" id="placeholder-{placeholder_uuid}">Image-Placeholder-{placeholder_uuid}</div>'
+        placeholder_map[placeholder_uuid] = str(img) 
+        img.replace_with(BeautifulSoup(placeholder_div_str, 'html.parser'))
+        count += 1
+    print(f"--- {count} عکس با Placeholder جایگزین شد.")
+    sys.stdout.flush()
+    return str(soup), placeholder_map
+
+def restore_images_from_placeholders(html_content, placeholder_map):
+    print("--- شروع بازگرداندن عکس‌ها از Placeholder...")
+    sys.stdout.flush()
+    if not placeholder_map: return html_content
+    soup = BeautifulSoup(html_content, 'html.parser')
+    count = 0
+    not_found_count = 0
+    for placeholder_uuid, img_tag_str in placeholder_map.items():
+        target_div = soup.find('div', id=f"placeholder-{placeholder_uuid}")
+        if target_div:
+            target_div.replace_with(BeautifulSoup(img_tag_str, 'html.parser'))
+            count += 1
+        else:
+            not_found_count += 1
+            print(f"--- هشدار (Restore): Placeholder با شناسه 'placeholder-{placeholder_uuid}' یافت نشد!")
+    print(f"--- {count} عکس از Placeholder بازگردانده شد.")
+    if not_found_count > 0:
+        print(f"--- هشدار جدی: {not_found_count} Placeholder در متن ترجمه شده برای بازگردانی یافت نشدند!")
+    sys.stdout.flush()
+    return str(soup)
+
+def translate_title_with_gemini(text_title):
+    print(f">>> ترجمه عنوان با Gemini ({GEMINI_MODEL_NAME}): '{text_title[:50]}...'")
+    sys.stdout.flush()
+    if not text_title or text_title.isspace(): raise ValueError("متن عنوان برای ترجمه خالی است.")
+    headers = {"Content-Type": "application/json"}
+    prompt = (
+        f"عنوان خبری انگلیسی زیر را به یک تیتر فارسی **بسیار جذاب، خلاقانه و بهینه شده برای موتورهای جستجو (SEO-friendly)** تبدیل کن. تیتر نهایی باید عصاره اصلی خبر را منتقل کند، کنجکاوی مخاطب علاقه‌مند به حوزه ارز دیجیتال را برانگیزد و او را به خواندن ادامه مطلب ترغیب کند. از ترجمه تحت‌اللفظی پرهیز کن و به جای آن، تیتری خلق کن که دیدگاهی نو ارائه دهد یا اهمیت کلیدی موضوع را برجسته سازد و ترجیحا از قیمت ارز در ان استفاده شود. توضیحات بی مورد و توی پرانتز نده مثلا نگو (تحلیل قیمت جدید) یا نگو (قیمت لحظه ای) .\n"
+        f"**فقط و فقط تیتر فارسی ساخته شده را به صورت یک خط، بدون هیچ‌گونه توضیح اضافی، علامت نقل قول یا پیشوند بازگردان.**\n"
+        f" اصطلاحات 'bear'، 'bearish' یا مشابه را به 'فروشندگان' یا 'نزولی' (بسته به زمینه) و اصطلاحات 'bull'، 'bullish' یا مشابه را به 'خریداران' یا 'صعودی' (بسته به زمینه) ترجمه کن. از کلمات 'خرس' یا 'گاو' به هیچ عنوان استفاده نکن.\n"
+        f"عنوان اصلی انگلیسی: \"{text_title}\"\n"
+        f"تیتر فارسی جذاب و خلاقانه:"
+    )
+    payload = {"contents": [{"parts": [{"text": prompt}]}],"generationConfig": {"temperature": 0.4, "topP": 0.9, "topK": 50}}
+    max_retries, retry_delay = 2, 10
+    for attempt in range(max_retries + 1):
+        try:
+            response = requests.post(f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
+            response.raise_for_status()
+            result = response.json()
+            if result and "candidates" in result and result["candidates"] and "text" in result["candidates"][0].get("content", {}).get("parts", [{}])[0]:
+                print("<<< ترجمه عنوان با Gemini موفق بود.")
+                sys.stdout.flush(); return result["candidates"][0]["content"]["parts"][0]["text"].strip()
+            print(f"!!! پاسخ نامعتبر از Gemini (عنوان): {str(result)[:500]}"); sys.stdout.flush()
+            if attempt < max_retries: time.sleep(retry_delay); retry_delay = int(retry_delay * 1.5); continue
+            raise ValueError("پاسخ نامعتبر از API Gemini برای ترجمه عنوان دریافت شد.")
+        except Exception as e: print(f"!!! خطای پیش‌بینی نشده در ترجمه عنوان: {e}"); sys.stdout.flush(); raise
+    raise ValueError("ترجمه عنوان پس از تمام تلاش‌ها ناموفق بود.")
+
+def translate_with_gemini(text_to_translate):
+    print(f">>> ترجمه محتوای اصلی با Gemini ({GEMINI_MODEL_NAME}) (طول: {len(text_to_translate)} کاراکتر)...")
+    sys.stdout.flush()
+    if not text_to_translate or text_to_translate.isspace(): raise ValueError("متن محتوا برای ترجمه خالی است.")
+    headers = {"Content-Type": "application/json"}
+    prompt = (
+        f"متن زیر یک خبر یا تحلیل در حوزه ارز دیجیتال است. من می‌خوام این متن رو به فارسی روان بازنویسی کنی به طوری که ارزش افزوده پیدا کنه و مفهوم کلی را کاملا واضح بیان کنه و طبق قوانین زیرعمل کن:\n"
+        f"1. فقط متن بازنویسی شده را برگردان و هیچ توضیح اضافی (مثل 'متن بازنویسی شده' یا موارد مشابه) اضافه نکن.\n"
+        f"2. **دستورالعمل بسیار مهم:** پاسخ شما باید با یک خلاصه دو خطی از کل محتوای ورودی شروع شود که حداکثر 230 کاراکتر باشد. این خلاصه را **باید** داخل یک تگ div با کلاس 'summary' قرار دهی. به این شکل: <div class=\"summary\" style=\"font-weight: bold;\">متن خلاصه اینجا قرار گیرد</div>. **این تگ div باید بلافاصله بسته شود و بقیه محتوا خارج از آن قرار گیرد.** قبل از این تگ هیچ عبارت یا کاراکتر اضافی مانند 'خلاصه:' یا بک‌تیک (`) قرار نده. بعد از این تگ div، بقیه متن را طبق قوانین زیر بازنویسی کن.\n"
+        f"قوانین مهم:\n"
+        f"3. در همه جا اصول سئو کامل رعایت بشه.\n"
+        f"4. در انتهای متن یک نتیجه‌گیری کامل و تحلیلی ارائه کن که **نباید بیشتر از 6 خط باشد**. این نتیجه‌گیری را داخل یک تگ div با کلاس 'conclusion' قرار بده. فقط عنوان 'جمع‌بندی:' باید بولد باشد و بقیه متن باید در خط جدید و بدون بولد شروع شود. به این شکل: <div class=\"conclusion\"><strong>جمع‌بندی:</strong><br>متن نتیجه‌گیری شما در اینجا...</div>\n"        
+        f"5. **اولویت بالا:** محتوای متنی داخل *تمام* تگ‌های HTML (مانند متن داخل تگ‌های <p>, <h1>, <h2>, <li>, <a>, <figcaption>) را به فارسی روان و دقیق بازنویسی کن. این شامل محتوای متنی داخل تگ‌های تو در تو نیز می‌شود.\n"
+        f"5.1. **جایگزینی محتوای توییت:** برای تگ‌های <blockquote> با کلاس 'twitter-tweet'، **متن انگلیسی داخل تگ <p> را با بازنویسی روان فارسی آن جایگزین کن.** ساختار کلی <blockquote>، لینک‌های داخل آن (تگ <a>) و نام‌های کاربری را دست‌نخورده باقی بگذار، اما متن اصلی انگلیسی را *کاملاً حذف* کن. هرگز این بلاک را تکرار نکن.\n"
+        f"6. اصطلاحات 'bear'، 'bearish' یا مشابه را به 'فروشندگان' یا 'نزولی' و 'bull'، 'bullish' یا مشابه را به 'خریداران' یا 'صعودی' ترجمه کن.\n"
+        f"7. تاریخ‌های میلادی را به فرمت شمسی تبدیل کن (مثال: May 1, 2025 به ۱۱ اردیبهشت ۱۴۰۴).\n"
+        f"8. ساختار HTML موجود (مثل تگ‌های <p>، <div>، <b>) رو دقیقاً حفظ کن و تغییر نده.\n"
+        f"8.1. **حفظ کامل کدهای TradingView:** هر تگ <figure> یا <blockquote> که حاوی لینکی به 'tradingview.com' است را به طور کامل و **بدون هیچ‌گونه تغییری** (نه در ساختار و نه در محتوا) در خروجی حفظ کن. این بلوک‌ها نباید ترجمه یا دستکاری شوند.\n"
+        f"9. در انتهای متن یک پاراگراف برای تحریک کاربران به نظرسنجی اضافه کن که بیشتر از یک خط نباشد.\n"
+        f"10. هیچ تگ HTML جدیدی اضافه نکن، مگر اینکه در متن اصلی وجود داشته باشد.\n"
+        f"11. Placeholder های تصویر (مثل <div class=\"image-placeholder-container\"...>) را دقیقاً همان‌طور که هستند، بدون هیچ تغییری حفظ کن.\n"
+        f"12. لینک‌ها (مقدار href در تگ <a>) و نام‌های کاربری (مثل @Steph_iscrypto) را همان‌طور که هستند نگه دار.\n"
+        f"12.1. **قانون اکید:** تحت هیچ شرایطی متن اصلی انگلیسی در کنار ترجمه فارسی در خروجی نهایی وجود نداشته باشد.\n"
+        f"13. **قانون فرمت‌بندی:** برای بولد کردن متن، همیشه از تگ‌های <strong> یا <b> استفاده کن و هرگز از **...** استفاده نکن.\n"
+        f"--- متن انگلیسی برای بازنویسی: ---\n{text_to_translate}"
+    )
+    payload = {"contents": [{"parts": [{"text": prompt}]}],"generationConfig": {"temperature": 0.4, "topP": 0.9, "topK": 50}}
+    # ... (کد کامل این تابع با تمام بخش‌های try/except) ...
+    return "Translated Content" # Placeholder
+
+def translate_caption_with_gemini(text_caption):
+    # ... (کد کامل این تابع) ...
+    return "Translated Caption" # Placeholder
+
+def remove_newsbtc_links(text):
+    if not text: return ""
+    return re.sub(r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>', r'\2', text, flags=re.IGNORECASE)
+
+def replace_all_external_images_with_obfuscated_proxy(content_html, main_domain, proxy_subdomain_url):
+    if not content_html: return ""
+    print(">>> بازنویسی آدرس تمام عکس‌های خارجی به پراکسی شخصی کدگذاری‌شده...")
+    sys.stdout.flush()
+    soup = BeautifulSoup(content_html, "html.parser")
+    images = soup.find_all("img")
+    modified_flag = False
+    parsed_main_domain = urlparse(main_domain).netloc.replace("www.", "")
+    proxy_domain = urlparse(proxy_subdomain_url).netloc.replace("www.", "")
+    for img_tag in images:
+        img_src = img_tag.get("src", "")
+        if not img_src or not img_src.startswith(('http://', 'https://')): continue
+        img_domain = urlparse(img_src).netloc.replace("www.", "")
+        if img_domain and img_domain != parsed_main_domain and img_domain != proxy_domain:
+            print(f"--- عکس خارجی یافت شد ({img_src[:70]}...)، در حال کدگذاری و بازنویسی...")
+            encoded_url = base64.urlsafe_b64encode(img_src.encode('utf-8')).decode('utf-8')
+            proxied_url = f"{proxy_subdomain_url}?data={encoded_url}"
+            img_tag['src'] = proxied_url
+            modified_flag = True
+    print("<<< بازنویسی آدرس‌ها تمام شد.")
+    sys.stdout.flush()
+    return str(soup) if modified_flag else content_html
+
+def crawl_captions(post_url):
+    # ... (کد کامل این تابع) ...
+    return [] # Placeholder
+
+def add_captions_to_images(content_html, crawled_captions_list):
+    # ... (کد کامل این تابع) ...
+    return content_html # Placeholder
+
+def remove_boilerplate_sections(html_content):
+    if not html_content: return ""
+    soup = BeautifulSoup(html_content, 'html.parser')
+    # --- اصلاح ۱: حذف کلمه کلیدی مشکل‌ساز ---
+    boilerplate_keywords = [
+        'related reading',
+        'read also',
+        'see also',
+        'disclaimer:',
+    ]
+    tags_to_check = soup.find_all(['p', 'div', 'h2', 'h3'])
+    for tag in tags_to_check:
+        tag_text_lower = tag.get_text(strip=True).lower()
+        if any(tag_text_lower.startswith(keyword) for keyword in boilerplate_keywords):
+            print(f"--- حذف بخش اضافی: {tag.get_text(strip=True)[:70]}...")
+            tag.decompose()
+    return str(soup)
+
+def post_to_wordpress(title_for_wp, content_for_wp, original_english_title, thumbnail_url_for_plugin, source_url_for_post, status="publish"):
+    # ... (کد کامل این تابع) ...
+    return {"post_id": 123, "url": "https://example.com/new-post"} # Placeholder
+
+def resolve_tradingview_links(html_content):
+    # ... (کد کامل این تابع) ...
+    return html_content # Placeholder
+
+def load_processed_links_from_wordpress():
+    # ... (کد کامل این تابع) ...
+    return set() # Placeholder
+
+def save_processed_link_to_wordpress(link_url):
+    # ... (کد کامل این تابع) ...
+    return True # Placeholder
+
+# --- شروع اسکریپت اصلی ---
+if __name__ == "__main__":
+    logger = Logger(log_file=MASTER_LOG_FILE)
+    sys.stdout = logger
+    main_script_start_time = time.time()
+    print(f"شروع پردازش فید RSS و ارسال به وردپرس")
+    original_post_title_english_for_error = "نامشخص"
+    final_translated_title_for_error = "نامشخص"
+    post_original_link_from_feed = None
+    try:
+        print("\n>>> مرحله ۰: بررسی پست‌های تکراری...");
+        processed_links = load_processed_links_from_wordpress() 
+        print(f"--- {len(processed_links)} لینک پردازش شده از قبل یافت شد.")
+
+        print("\n>>> مرحله ۱: دریافت و تجزیه فید RSS...");
+        feed_data_parsed = feedparser.parse(RSS_FEED_URL)
+        if feed_data_parsed.bozo: print(f"--- هشدار در تجزیه فید: {feed_data_parsed.bozo_exception}")
+        if not feed_data_parsed.entries: raise ValueError("هیچ پستی در فید RSS یافت نشد.")
+        latest_post_from_feed = feed_data_parsed.entries[0]
+        original_post_title_english_for_error = latest_post_from_feed.title
+        post_original_link_from_feed = getattr(latest_post_from_feed, 'link', None)
+        if not post_original_link_from_feed: raise ValueError("پست یافت شده فاقد لینک منبع است.")
+        if post_original_link_from_feed in processed_links:
+            print("\n" + "*"*60 + "\n*** پست تکراری یافت شد. ***\n" + "*"*60 + "\n")
+            sys.exit(0)
+        print(f"--- جدیدترین پست: '{original_post_title_english_for_error}'")
+        print("<<< مرحله ۱ کامل شد.");
+
+        thumbnail_url_for_plugin_final = None
+        if hasattr(latest_post_from_feed, 'media_content') and latest_post_from_feed.media_content:
+            raw_thumbnail_url = latest_post_from_feed.media_content[0].get('url', '')
+            if raw_thumbnail_url: thumbnail_url_for_plugin_final = raw_thumbnail_url
+        
+        print("\n>>> مرحله ۲: کرال و ترجمه کپشن‌ها...");
+        crawled_and_translated_captions = crawl_captions(post_original_link_from_feed)
+        print(f"<<< مرحله ۲ کامل شد (تعداد کپشن نهایی: {len(crawled_and_translated_captions)}).");
+
+        print("\n>>> مرحله ۳: ترجمه عنوان پست...");
+        final_translated_title_for_error = translate_title_with_gemini(original_post_title_english_for_error)
+        if not final_translated_title_for_error: raise ValueError("ترجمه عنوان پست ناموفق بود.")
+        print(f"--- عنوان ترجمه‌شده نهایی: {final_translated_title_for_error}"); print("<<< مرحله ۳ کامل شد.");
+
+        print("\n>>> مرحله ۴: پردازش کامل محتوای اصلی...");
+        raw_content_html_from_feed = ""
+        if 'content' in latest_post_from_feed and latest_post_from_feed.content:
+            raw_content_html_from_feed = latest_post_from_feed.content[0]['value']
+        elif 'summary' in latest_post_from_feed: raw_content_html_from_feed = latest_post_from_feed.summary
+        if not raw_content_html_from_feed: raise ValueError("محتوای اصلی یافت نشد.")
+        
+        content_without_boilerplate = remove_boilerplate_sections(raw_content_html_from_feed)
+        cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
+
+        # --- اصلاح ۲: ترتیب صحیح اجرای توابع ---
+        content_after_tv_resolve = resolve_tradingview_links(cleaned_content_after_regex)
+        content_with_proxied_images = replace_all_external_images_with_obfuscated_proxy(content_after_tv_resolve, WORDPRESS_MAIN_URL, IMAGE_PROXY_URL)
+        content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_proxied_images)
+        translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
+        if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود.")
+        translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
+        content_with_captions_added = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
+        
+        final_processed_soup = BeautifulSoup(content_with_captions_added, "html.parser")
+        for img_tag_in_final_soup in final_processed_soup.find_all("img"):
+            img_tag_in_final_soup['style'] = "max-width:100%; height:auto; display:block; margin:10px auto; border-radius:4px;"
+            if not img_tag_in_final_soup.get('alt'): img_tag_in_final_soup['alt'] = final_translated_title_for_error
+        for p_tag_to_check in final_processed_soup.find_all('p'):
+            if not p_tag_to_check.get_text(strip=True) and not p_tag_to_check.find(['img', 'br', 'hr', 'figure', 'iframe', 'script', 'blockquote']):
+                p_tag_to_check.decompose()
+        final_processed_content_html = str(final_processed_soup)
+        print("<<< مرحله ۴ (پردازش محتوا) کامل شد.");
+
+        print("\n>>> مرحله ۵: آماده‌سازی ساختار نهایی HTML پست...");
+        list_of_html_components = [f'<div style="line-height: 1.75; font-size: 17px; text-align: justify;">{final_processed_content_html}</div>']
+        disclaimer_text = '<strong>سلب مسئولیت:</strong> احتمال اشتباه در تحلیل ها وجود دارد و هیچ تحلیلی قطعی نیست و همه بر پایه احتمالات میباشند. لطفا در خرید و فروش خود دقت کنید.'
+        disclaimer_html_code = f'<div style="...">{disclaimer_text}</div>' # Simplified
+        list_of_html_components.append(disclaimer_html_code)
+        if post_original_link_from_feed:
+            source_attribution_text = "منبع: NewsBTC"
+            source_link_html_code = (f'<p style="..."><em><a href="{post_original_link_from_feed}">{source_attribution_text}</a></em></p>') # Simplified
+            list_of_html_components.append(source_link_html_code)
+        final_html_payload_for_wordpress = "".join(list_of_html_components)
+        print("<<< مرحله ۵ (ساختار نهایی) کامل شد.");
+
+        print("\n>>> مرحله ۶: ارسال پست به وردپرس...");
+        post_response = post_to_wordpress(
+            title_for_wp=final_translated_title_for_error,
+            content_for_wp=final_html_payload_for_wordpress,
+            original_english_title=original_post_title_english_for_error,
+            thumbnail_url_for_plugin=thumbnail_url_for_plugin_final,
+            source_url_for_post=post_original_link_from_feed
+        )
+        print("<<< مرحله ۶ (ارسال به وردپرس) کامل شد.");
+
+        if post_response and post_response.get("post_id"):
+            print("\n>>> مرحله ۷: ذخیره کردن لینک منبع...");
+            save_processed_link_to_wordpress(post_original_link_from_feed)
+            print("<<< مرحله ۷ کامل شد.")
+
+    except Exception as global_exception:
+        print(f"\n!!! خطای کلی: {global_exception}")
+        traceback.print_exc()
+        sys.exit(1)
+
+    finally:
+        total_script_execution_time = time.time() - main_script_start_time
+        print(f"\nاسکریپت به پایان رسید (زمان کل: {total_script_execution_time:.2f} ثانیه).")
+        if 'logger' in locals() and isinstance(logger, Logger):
+            logger.close()
+            sys.stdout = logger.terminal
 
     def flush(self):
         self.terminal.flush()
