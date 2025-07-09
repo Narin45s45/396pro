@@ -13,6 +13,9 @@ import uuid
 import traceback
 from datetime import datetime
 
+
+
+
 # --- کلاس مدیریت لاگ ---
 class Logger:
     def __init__(self, log_file="master_log.txt"):
@@ -50,6 +53,7 @@ GEMINI_API_KEY = os.environ.get("GEMAPI")
 WORDPRESS_MAIN_URL = os.environ.get("WORDPRESS_URL")
 WORDPRESS_USER = os.environ.get("WORDPRESS_USER")
 WORDPRESS_PASS = os.environ.get("WORDPRESS_PASS")
+IMAGE_PROXY_URL = os.environ.get("IMAGE_PROXY_URL") # <-- این خط را اینجا اضافه کنید
 
 # URLهای Endpointهای API شما
 WORDPRESS_CUSTOM_POST_API_ENDPOINT = f"{WORDPRESS_MAIN_URL}/wp-json/my-poster/v1/create"
@@ -60,8 +64,8 @@ REQUEST_TIMEOUT = 60
 GEMINI_TIMEOUT = 150
 MASTER_LOG_FILE = "master_log.txt"
 
-if not all([GEMINI_API_KEY, WORDPRESS_MAIN_URL, WORDPRESS_USER, WORDPRESS_PASS]):
-    raise ValueError("یکی از متغیرهای محیطی ضروری (GEMAPI, WORDPRESS_URL, WORDPRESS_USER, WORDPRESS_PASS) تنظیم نشده است.")
+if not all([GEMINI_API_KEY, WORDPRESS_MAIN_URL, WORDPRESS_USER, WORDPRESS_PASS, IMAGE_PROXY_URL]):
+    raise ValueError("یکی از متغیرهای محیطی ضروری (GEMAPI, WORDPRESS_URL, WORDPRESS_USER, WORDPRESS_PASS, IMAGE_PROXY_URL) تنظیم نشده است.")
 
 # --- توابع کمکی ---
 def generate_english_slug(title_str):
@@ -282,58 +286,51 @@ def remove_newsbtc_links(text):
     if not text: return ""
     return re.sub(r'<a\s+[^>]*href=["\']https?://(www\.)?newsbtc\.com[^"\']*["\'][^>]*>(.*?)</a>', r'\2', text, flags=re.IGNORECASE)
 
+
+
 # --- تابع اصلاح شده برای استفاده از پراکسی ---
-def replace_filtered_images_with_proxy(content_html):
+def replace_all_external_images_with_obfuscated_proxy(content_html, main_domain, proxy_subdomain_url):
     """
-    این تابع آدرس عکس‌هایی که از دامنه‌های فیلتر شده هستند را
-    با استفاده از یک سرویس پراکسی رایگان بازنویسی می‌کند تا بدون نیاز به ذخیره‌سازی،
-    برای کاربر نمایش داده شوند.
+    این تابع آدرس تمام عکس‌های خارجی را با یک آدرس پراکسی شخصی کدگذاری‌شده (Base64) جایگزین می‌کند.
     """
     if not content_html:
         return ""
         
-    print(">>> بررسی و بازنویسی آدرس عکس‌های فیلتر شده با پراکسی...")
+    print(">>> بازنویسی آدرس تمام عکس‌های خارجی به پراکسی شخصی کدگذاری‌شده...")
     sys.stdout.flush()
     soup = BeautifulSoup(content_html, "html.parser")
     images = soup.find_all("img")
     modified_flag = False
-    processed_count = 0
-    found_filtered_domains_count = 0
     
-    # لیست دامنه‌هایی که می‌خواهیم پراکسی شوند
-    filtered_domains_for_content = ["twimg.com", "i0.wp.com", "i1.wp.com", "i2.wp.com", "pbs.twimg.com"]
-    
-    for i, img_tag in enumerate(images):
+    parsed_main_domain = urlparse(main_domain).netloc.replace("www.", "")
+    proxy_domain = urlparse(proxy_subdomain_url).netloc.replace("www.", "")
+
+    for img_tag in images:
         img_src = img_tag.get("src", "")
         
-        # فقط لینک‌های معتبر اینترنتی را بررسی کن
         if not img_src or not img_src.startswith(('http://', 'https://')):
             continue
 
-        is_on_filtered_domain = any(domain_part in img_src for domain_part in filtered_domains_for_content)
+        img_domain = urlparse(img_src).netloc.replace("www.", "")
         
-        if is_on_filtered_domain:
-            found_filtered_domains_count += 1
-            print(f"--- عکس محتوا {i+1} از دامنه فیلتر شده ({img_src[:70]}...) در حال بازنویسی با پراکسی...")
-            sys.stdout.flush()
+        if img_domain and img_domain != parsed_main_domain and img_domain != proxy_domain:
+            print(f"--- عکس خارجی یافت شد ({img_src[:70]}...)، در حال کدگذاری و بازنویسی...")
             
-            # --- تغییر اصلی اینجاست ---
-            # دیگر خبری از دانلود و Base64 نیست، فقط آدرس را بازنویسی می‌کنیم
-            proxied_url = f"https://wsrv.nl/?url={img_src}"
+            # 1. آدرس عکس را با Base64 کدگذاری می‌کنیم
+            encoded_url = base64.urlsafe_b64encode(img_src.encode('utf-8')).decode('utf-8')
+            
+            # 2. از پارامتر 'data' برای ارسال آدرس کد شده استفاده می‌کنیم
+            proxied_url = f"{proxy_subdomain_url}?data={encoded_url}"
             img_tag['src'] = proxied_url
-            # --- پایان تغییر اصلی ---
-            
-            if not img_tag.get('alt'):
-                img_tag['alt'] = "تصویر پراکسی شده از محتوا"
-                
             modified_flag = True
-            processed_count += 1
             
-    print(f"<<< بازنویسی آدرس‌ها تمام شد. {processed_count}/{found_filtered_domains_count} عکس با موفقیت پراکسی شد.")
+    print("<<< بازنویسی آدرس‌ها تمام شد.")
     sys.stdout.flush()
-    
-    # اگر تغییری رخ داده بود، محتوای جدید را برگردان
     return str(soup) if modified_flag else content_html
+
+
+
+
 
 def crawl_captions(post_url):
     print(f">>> شروع کرال و ترجمه کپشن‌ها از: {post_url}")
@@ -730,7 +727,7 @@ if __name__ == "__main__":
         cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
         # مرحله ۱ پردازش تصویر: بازنویسی لینک‌های فیلتر شده با پراکسی
-        content_with_proxied_images = replace_filtered_images_with_proxy(cleaned_content_after_regex)
+        content_with_proxied_images = replace_all_external_images_with_obfuscated_proxy(cleaned_content_after_regex, WORDPRESS_MAIN_URL, IMAGE_PROXY_URL)
 
         # مرحله ۲ پردازش تصویر: جایگزینی تصاویر با Placeholder و ترجمه
         content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_proxied_images)
