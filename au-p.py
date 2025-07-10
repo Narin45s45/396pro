@@ -331,15 +331,33 @@ def crawl_captions(post_url):
         response = requests.get(post_url, timeout=REQUEST_TIMEOUT, headers=headers)
         response.raise_for_status(); soup = BeautifulSoup(response.content, "html.parser")
         figures = soup.find_all("figure"); print(f"--- تعداد <figure> یافت شده برای بررسی کپشن: {len(figures)}"); sys.stdout.flush()
+        
         for fig_idx, figure_element in enumerate(figures):
             img_element = figure_element.find("img"); caption_element = figure_element.find("figcaption")
             if img_element and caption_element:
                 img_original_src = img_element.get("src") or img_element.get("data-src")
+                
+                # --- منطق جدید برای تصحیح لینک TradingView در همان ابتدا ---
+                if img_original_src and 'tradingview.com/x/' in img_original_src:
+                    print(f"--- [Crawl] در حال تصحیح لینک TradingView برای کپشن: {img_original_src[:70]}...")
+                    try:
+                        tv_response = requests.get(img_original_src, timeout=REQUEST_TIMEOUT, headers=headers)
+                        tv_response.raise_for_status()
+                        tv_soup = BeautifulSoup(tv_response.content, "html.parser")
+                        meta_tag = tv_soup.find("meta", property="og:image")
+                        if meta_tag and meta_tag.get("content"):
+                            img_original_src = meta_tag["content"] # جایگزینی با لینک مستقیم .png
+                            print(f"--- [Crawl] لینک مستقیم یافت شد: {img_original_src}")
+                    except Exception as e_tv_crawl:
+                        print(f"!!! [Crawl] خطا در تصحیح لینک TradingView کپشن: {e_tv_crawl}")
+                # --- پایان منطق جدید ---
+
                 if img_original_src:
                     parsed_img_url = urlparse(unquote(img_original_src)); normalized_img_src = parsed_img_url._replace(query='').geturl()
                     original_caption_html = str(caption_element); translated_caption_html = translate_caption_with_gemini(original_caption_html)
                     if translated_caption_html and translated_caption_html.strip():
                         captions_data_list.append({"image_url": normalized_img_src, "caption": translated_caption_html, "original_alt": img_element.get("alt", "")})
+                        
         unique_captions = []; seen_caption_texts = set()
         for item in captions_data_list:
             caption_text_for_uniqueness = BeautifulSoup(item['caption'], 'html.parser').get_text(strip=True)
