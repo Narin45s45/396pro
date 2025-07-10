@@ -310,7 +310,7 @@ def proxy_all_images(content_html):
         # URL اصلی عکس را به base64 تبدیل می‌کنیم
         encoded_url = base64.b64encode(img_src.encode('utf-8')).decode('utf-8')
         # آدرس پراکسی شخصی شما را جایگزین می‌کنیم
-        proxied_url = f"https://img.arzitals.ir/index.php?data={encoded_url}"
+        proxied_url = f"https://img.arzitals.ir/proxy.php?data={encoded_url}"
         img_tag['src'] = proxied_url
         
         if not img_tag.get('alt'):
@@ -714,35 +714,19 @@ if __name__ == "__main__":
         if not raw_content_html_from_feed: raise ValueError("محتوای اصلی (content یا summary) از فید یافت نشد.")
         print(f"--- محتوای خام از فید دریافت شد (طول: {len(raw_content_html_from_feed)} کاراکتر).");
 
-
-
-
-        
-        # ... کد قبلی
         content_without_boilerplate = remove_boilerplate_sections(raw_content_html_from_feed)
         cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
-        # --- ترتیب عملیات اصلاح شد ---
+        # مرحله ۱ پردازش تصویر: بازنویسی تمام لینک‌های عکس با پراکسی شخصی
+        content_with_all_images_proxied = proxy_all_images(cleaned_content_after_regex)
 
-        # مرحله A: ابتدا کپشن‌ها را به محتوای اصلی اضافه می‌کنیم
-        content_with_captions_added = add_captions_to_images(cleaned_content_after_regex, crawled_and_translated_captions)
-        
-        # مرحله B: سپس تمام عکس‌ها را پراکسی می‌کنیم
-        content_with_all_images_proxied = proxy_all_images(content_with_captions_added)
-
-        # مرحله C: حالا محتوای نهایی را برای ترجمه آماده می‌کنیم
+        # مرحله ۲ پردازش تصویر: جایگزینی تصاویر با Placeholder و ترجمه
         content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_all_images_proxied)
         translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
         if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود یا خالی بازگشت.")
 
-        # مرحله D: تصاویر را بازگردانده و پردازش نهایی می‌کنیم
         translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
-        content_final_after_tv_resolve = resolve_tradingview_links(translated_content_with_images_restored)
-        # ... کد بعدی
-
-
-
-        
+        content_with_captions_added = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
         content_final_after_tv_resolve = resolve_tradingview_links(content_with_captions_added)
 
         final_processed_soup = BeautifulSoup(content_final_after_tv_resolve, "html.parser")
