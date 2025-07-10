@@ -310,7 +310,7 @@ def proxy_all_images(content_html):
         # URL اصلی عکس را به base64 تبدیل می‌کنیم
         encoded_url = base64.b64encode(img_src.encode('utf-8')).decode('utf-8')
         # آدرس پراکسی شخصی شما را جایگزین می‌کنیم
-        proxied_url = f"https://img.arzitals.ir/proxy.php?data={encoded_url}"
+        proxied_url = f"https://img.arzitals.ir/index.php?data={encoded_url}"
         img_tag['src'] = proxied_url
         
         if not img_tag.get('alt'):
