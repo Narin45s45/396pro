@@ -7,8 +7,7 @@ import re
 from bs4 import BeautifulSoup
 import time
 import base64
-from urllib.parse import urlparse, unquote
-import sys
+from urllib.parse import urlparse, unquote, parse_qsimport sys
 import uuid
 import traceback
 from datetime import datetime
