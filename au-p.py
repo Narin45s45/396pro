@@ -350,6 +350,9 @@ def crawl_captions(post_url):
     except Exception as e_crawl: print(f"!!! خطا در کرال یا ترجمه کپشن‌ها: {e_crawl}"); sys.stdout.flush(); return []
 
 # --- تابع هوشمندتر شده برای افزودن کپشن‌ها ---
+
+
+# --- تابع هوشمندتر شده برای افزودن کپشن‌ها (با قابلیت کدگشایی پراکسی) ---
 def add_captions_to_images(content_html, crawled_captions_list):
     if not crawled_captions_list or not content_html:
         return content_html
@@ -363,16 +366,6 @@ def add_captions_to_images(content_html, crawled_captions_list):
     used_caption_indices = set()
     captions_directly_added_count = 0
 
-    if not images_in_content and crawled_captions_list:
-        print("--- هیچ عکسی در محتوا یافت نشد، کپشن‌ها به انتها اضافه می‌شوند.")
-        remaining_captions_html = "".join([item['caption'] for item in crawled_captions_list])
-        if remaining_captions_html.strip():
-            final_captions_div_at_end = soup.new_tag('div', style="text-align: center; margin-top: 15px; font-size: small; border-top: 1px solid #eee; padding-top: 10px;")
-            final_captions_div_at_end.append(BeautifulSoup(remaining_captions_html, "html.parser"))
-            body_tag_found = soup.find('body') or soup
-            body_tag_found.append(final_captions_div_at_end)
-        return str(soup)
-
     for img_content_idx, img_tag_in_content in enumerate(images_in_content):
         parent_figure = img_tag_in_content.find_parent('figure')
         if parent_figure and parent_figure.find('figcaption'):
@@ -383,12 +376,29 @@ def add_captions_to_images(content_html, crawled_captions_list):
         if not current_img_src:
             continue
 
-        normalized_content_img_src = ""
-        # آدرس‌های پراکسی شده را نرمال‌سازی نکن
-        if not current_img_src.startswith("https://img.arzitals.ir") and not current_img_src.startswith("data:"):
-            parsed_content_img_url = urlparse(unquote(current_img_src))
-            normalized_content_img_src = parsed_content_img_url._replace(query='').geturl()
+        original_src_found = ""
+        # بررسی هوشمند: اگر لینک پراکسی بود، آن را کدگشایی کن
+        if 'img.arzitals.ir/index.php?data=' in current_img_src:
+            try:
+                parsed_proxy_url = urlparse(current_img_src)
+                # استخراج پارامتر data از کوئری
+                b64_data = parse_qs(parsed_proxy_url.query).get('data', [None])[0]
+                if b64_data:
+                    original_src_found = base64.b64decode(b64_data).decode('utf-8')
+            except Exception as e:
+                print(f"--- هشدار: خطای کدگشایی URL پراکسی: {e}")
+        else:
+            # اگر لینک پراکسی نبود، همان لینک اصلی است
+             original_src_found = current_img_src
 
+        if not original_src_found:
+            continue
+
+        # نرمال‌سازی لینک اصلی پیدا شده برای تطبیق
+        parsed_content_img_url = urlparse(unquote(original_src_found))
+        normalized_content_img_src = parsed_content_img_url._replace(query='').geturl()
+
+        # تطبیق با لیست کپشن‌های کرال شده
         matched_caption_data = None
         matched_caption_original_index = -1
         for cap_original_idx, caption_data in enumerate(crawled_captions_list):
@@ -402,18 +412,16 @@ def add_captions_to_images(content_html, crawled_captions_list):
         if matched_caption_data:
             print(f"--- افزودن کپشن کرال شده {matched_caption_original_index + 1} به عکس {img_content_idx + 1}")
             sys.stdout.flush()
+            # ... (بقیه کد تابع برای ساخت تگ figure و figcaption بدون تغییر باقی می‌ماند)
             caption_html_to_insert = matched_caption_data["caption"]
             new_figure_tag = soup.new_tag("figure", style="margin:1em auto; text-align:center; max-width:100%;")
-
             img_parent = img_tag_in_content.parent
             if img_parent and img_parent.name in ['p', 'div'] and not img_parent.get_text(strip=True) and len(list(img_parent.children)) == 1:
                 img_parent.replace_with(new_figure_tag)
             else:
                 img_tag_in_content.wrap(new_figure_tag)
-
             if img_tag_in_content.parent != new_figure_tag:
                 new_figure_tag.append(img_tag_in_content.extract())
-
             parsed_caption_for_insertion = BeautifulSoup(caption_html_to_insert, "html.parser")
             final_figcaption_element = parsed_caption_for_insertion.find('figcaption')
             if not final_figcaption_element:
@@ -421,23 +429,21 @@ def add_captions_to_images(content_html, crawled_captions_list):
                 body_or_root_of_caption = parsed_caption_for_insertion.find('body') or parsed_caption_for_insertion
                 for child_node_cap in body_or_root_of_caption.contents:
                     final_figcaption_element.append(child_node_cap.extract())
-
             current_fig_style = final_figcaption_element.get('style', '')
             fig_style_dict = {s.split(':')[0].strip(): s.split(':')[1].strip() for s in current_fig_style.split(';') if ':' in s and s.strip()}
             fig_style_dict.update({"text-align": "center", "font-size": "0.9em", "margin-top": "0.5em", "color": "#555", "line-height": "1.4"})
             final_figcaption_element['style'] = '; '.join([f"{k.strip()}: {v.strip()}" for k,v in fig_style_dict.items()]) + (';' if fig_style_dict else '')
-
             new_figure_tag.append(final_figcaption_element)
             used_caption_indices.add(matched_caption_original_index)
             captions_directly_added_count += 1
 
+    # ... (بخش پایانی تابع برای افزودن کپشن‌های باقی‌مانده بدون تغییر باقی می‌ماند)
     remaining_captions_html_output = ""
     remaining_captions_added_count = 0
     for i, item_rem in enumerate(crawled_captions_list):
         if i not in used_caption_indices:
             remaining_captions_html_output += item_rem['caption']
             remaining_captions_added_count += 1
-
     if remaining_captions_html_output.strip():
         print(f"--- افزودن {remaining_captions_added_count} کپشن باقی‌مانده به انتهای محتوا...")
         sys.stdout.flush()
@@ -721,23 +727,20 @@ if __name__ == "__main__":
         content_without_boilerplate = remove_boilerplate_sections(raw_content_html_from_feed)
         cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
-        # --- ترتیب عملیات اصلاح شد ---
+        # ترتیب به حالت اولیه بازگشت
+        content_with_all_images_proxied = proxy_all_images(cleaned_content_after_regex)
 
-        # مرحله A: ابتدا کپشن‌ها را به محتوای اصلی اضافه می‌کنیم
-        content_with_captions_added = add_captions_to_images(cleaned_content_after_regex, crawled_and_translated_captions)
-        
-        # مرحله B: سپس تمام عکس‌ها را پراکسی می‌کنیم
-        content_with_all_images_proxied = proxy_all_images(content_with_captions_added)
-
-        # مرحله C: حالا محتوای نهایی را برای ترجمه آماده می‌کنیم
         content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_all_images_proxied)
         translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
         if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود یا خالی بازگشت.")
 
-        # مرحله D: تصاویر را بازگردانده و پردازش نهایی می‌کنیم
         translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
-        content_final_after_tv_resolve = resolve_tradingview_links(translated_content_with_images_restored)
-        # ... کد بعدی
+        
+        # تابع هوشمند شده کپشن، در انتها فراخوانی می‌شود
+        content_with_captions_added = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
+        
+        content_final_after_tv_resolve = resolve_tradingview_links(content_with_captions_added)
+# ...
 
 
 
