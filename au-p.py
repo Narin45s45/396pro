@@ -720,35 +720,31 @@ if __name__ == "__main__":
         if not raw_content_html_from_feed: raise ValueError("محتوای اصلی (content یا summary) از فید یافت نشد.")
         print(f"--- محتوای خام از فید دریافت شد (طول: {len(raw_content_html_from_feed)} کاراکتر).");
 
+        # --- ترتیب نهایی و صحیح عملیات ---
 
-
-        
-        # ... کد قبلی
+        # 1. پاکسازی اولیه
         content_without_boilerplate = remove_boilerplate_sections(raw_content_html_from_feed)
         cleaned_content_after_regex = remove_newsbtc_links(content_without_boilerplate)
 
-        # ترتیب به حالت اولیه بازگشت
-        content_with_all_images_proxied = proxy_all_images(cleaned_content_after_regex)
+        # 2. تبدیل لینک TradingView به لینک عکس مستقیم
+        content_with_resolved_tv_links = resolve_tradingview_links(cleaned_content_after_regex)
+        
+        # 3. پراکسی کردن تمام عکس‌ها (که حالا همگی لینک مستقیم هستند)
+        content_with_all_images_proxied = proxy_all_images(content_with_resolved_tv_links)
 
+        # 4. آماده‌سازی برای ترجمه
         content_with_placeholders, placeholder_map_generated = replace_images_with_placeholders(content_with_all_images_proxied)
         translated_content_main_with_placeholders = translate_with_gemini(content_with_placeholders)
         if not translated_content_main_with_placeholders: raise ValueError("ترجمه محتوای اصلی ناموفق بود یا خالی بازگشت.")
 
+        # 5. بازگرداندن تصاویر به متن ترجمه شده
         translated_content_with_images_restored = restore_images_from_placeholders(translated_content_main_with_placeholders, placeholder_map_generated)
         
-        # تابع هوشمند شده کپشن، در انتها فراخوانی می‌شود
-        content_with_captions_added = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
-        
-        content_final_after_tv_resolve = resolve_tradingview_links(content_with_captions_added)
-# ...
+        # 6. افزودن کپشن‌ها با استفاده از تابع هوشمند
+        final_processed_content_html = add_captions_to_images(translated_content_with_images_restored, crawled_and_translated_captions)
 
-
-
-
-        
-        content_final_after_tv_resolve = resolve_tradingview_links(content_with_captions_added)
-
-        final_processed_soup = BeautifulSoup(content_final_after_tv_resolve, "html.parser")
+        # پردازش نهایی و اضافه کردن استایل
+        final_processed_soup = BeautifulSoup(final_processed_content_html, "html.parser")
         for img_tag_in_final_soup in final_processed_soup.find_all("img"):
             img_tag_in_final_soup['style'] = "max-width:100%; height:auto; display:block; margin:10px auto; border-radius:4px;"
             if not img_tag_in_final_soup.get('alt'): img_tag_in_final_soup['alt'] = final_translated_title_for_error
