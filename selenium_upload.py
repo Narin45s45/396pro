@@ -3,17 +3,19 @@ import time
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys # برای استفاده از کلید Enter
 from selenium.webdriver.chrome.options import Options
 
-# --- اطلاعات از سکرت‌های گیت‌هاب خوانده می‌شود ---
+# --- خواندن اطلاعات از سکرت‌های گیت‌هاب ---
 USERNAME = os.environ.get("APARAT_USERNAME")
 PASSWORD = os.environ.get("APARAT_PASSWORD")
 
-# --- تنظیمات ویدیو ---
+# --- تنظیمات ویدیو طبق خواسته شما ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "آخرین تلاش آپلود از گیت‌هاب"
-VIDEO_DESCRIPTION = "این آخرین تست برای آپلود خودکار ویدیو است."
+VIDEO_TITLE = "گیم پلی بازی جدید"
+VIDEO_DESCRIPTION = "ویدیوی جدید گیم پلی که به صورت خودکار بارگذاری شد."
+VIDEO_TAGS = ["گیم", "گیم پلی", "بازی جدید"] # لیست تگ‌ها (حداقل ۳ عدد)
 
 def download_video(url, filename):
     print("-> Downloading video...")
@@ -69,30 +71,42 @@ try:
     print("-> Selecting video file for upload...")
     file_input = driver.find_element(By.XPATH, "//input[@type='file']")
     file_input.send_keys(video_full_path)
-    print("-> File path sent to input. Waiting for processing...")
+    print("-> File path sent. Waiting for processing...")
     
     time.sleep(20)
-    driver.save_screenshot('1_after_file_select.png')
     
     print("-> Entering video details...")
     driver.find_element(By.ID, "video-title").send_keys(VIDEO_TITLE)
     driver.find_element(By.ID, "video-description").send_keys(VIDEO_DESCRIPTION)
     
-    print("-> Skipping tag input step to ensure stability.")
-    driver.save_screenshot('2_after_details_filled.png')
+    # ============================ FINAL FIX IMPLEMENTED ============================
+    # ۱. انتخاب دسته‌بندی
+    print("-> Selecting Category...")
+    driver.find_element(By.ID, "video-category-btn").click()
+    time.sleep(1)
+    # در اینجا "بازی" را به عنوان دسته‌بندی انتخاب می‌کنیم
+    driver.find_element(By.XPATH, "//li[contains(text(), 'بازی')]").click()
+    time.sleep(1)
+
+    # ۲. وارد کردن تگ‌ها
+    print("-> Entering Tags...")
+    tag_input = driver.find_element(By.XPATH, "//div[contains(@class, 'tag-input-container')]//input")
+    for tag in VIDEO_TAGS:
+        tag_input.send_keys(tag)
+        tag_input.send_keys(Keys.ENTER)
+        time.sleep(1) # مکث کوتاه بین هر تگ
+    # ===============================================================================
+
+    driver.save_screenshot('final_form_filled.png')
     
     time.sleep(5)
-    
-    # ============================ THE FINAL FIX ATTEMPT ============================
-    # پیدا کردن دکمه بر اساس متن دقیق "انتشار ویدیو" که داخل تگ‌های دیگر است
-    print("-> Clicking final publish button by its precise text...")
+    print("-> Clicking final publish button...")
     publish_button = driver.find_element(By.XPATH, "//button[contains(., 'انتشار ویدیو')]")
     publish_button.click()
-    # ===============================================================================
     
     print("-> Waiting for final confirmation...")
     time.sleep(15)
-    driver.save_screenshot('3_final_page.png')
+    driver.save_screenshot('final_page_after_publish.png')
     
     print("\n\n✅✅✅ UPLOAD PROCESS COMPLETED! ✅✅✅\nCheck your Aparat channel.")
 
