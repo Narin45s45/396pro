@@ -1,7 +1,7 @@
-name: Aparat Selenium Uploader Test
+name: Aparat Selenium Uploader
 
 on:
-  workflow_dispatch: # این گزینه به شما اجازه می‌دهد اسکریپت را به صورت دستی از سایت گیت‌هاب اجرا کنید
+  workflow_dispatch:
 
 jobs:
   upload_video:
@@ -28,9 +28,10 @@ jobs:
           APARAT_PASSWORD: ${{ secrets.APARAT_PASSWORD }}
         run: python selenium_upload.py
       
-      - name: Upload screenshots as artifacts
-        if: failure() # این مرحله فقط در صورت شکست اجرا می‌شود
+      - name: Upload run screenshots
+        # این بخش تغییر کرده تا همیشه اجرا شود
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: error-screenshots
+          name: run-screenshots
           path: ./*.png
