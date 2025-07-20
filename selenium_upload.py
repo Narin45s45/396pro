@@ -150,13 +150,14 @@ try:
     print(f"-> Category '{VIDEO_CATEGORY}' selected.")
     time.sleep(2)
 
-    # ============================ SIMPLIFIED TAG LOGIC ============================
-    print("-> Entering Tags (Simplified Method)...")
+    # ============================ FINAL ROBUST TAG LOGIC ============================
+    print("-> Entering Tags (Final Robust Method)...")
     
     # Step 1: Click the main tag area to activate the input field.
     print("-> Activating the tag input area...")
     tag_area_trigger = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@id='FField_tags']//div[@role='button']")))
     tag_area_trigger.click()
+    time.sleep(1) # Add a small pause after clicking
     
     # Step 2: Now find the actual input field that has appeared.
     print("-> Finding the active tag input field...")
@@ -165,19 +166,27 @@ try:
     for tag in VIDEO_TAGS:
         print(f"-> Processing tag: '{tag}'")
         tag_input.clear()
+        # Send keys with a small delay to ensure they are registered
         tag_input.send_keys(tag)
-        # Just press Enter. No need to search or click suggestions.
+        time.sleep(0.5) # Wait half a second after typing
+        # Just press Enter. This is the most reliable method.
         tag_input.send_keys(Keys.ENTER)
         print(f"  - ✅ Tag '{tag}' entered with Enter key.")
-        time.sleep(1) # A short pause between tags
+        time.sleep(1.5) # A longer pause to let the UI update the tag list
     # ===================================================================================
 
     print("-> Taking a screenshot before publishing...")
     driver.save_screenshot('final_form_filled.png')
     
-    print("-> Clicking final publish button...")
-    publish_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'انتشار ویدیو')]")))
-    publish_button.click()
+    # ============================ FINAL SUBMIT BUTTON FIX ============================
+    print("-> Clicking final publish button using JavaScript...")
+    # This selector finds the button with type='submit' that contains the text 'انتشار ویدیو'
+    publish_button_xpath = "//button[@type='submit' and contains(., 'انتشار ویدیو')]"
+    publish_button = wait.until(EC.element_to_be_clickable((By.XPATH, publish_button_xpath)))
+    # Using JavaScript click which is more reliable for complex UIs
+    driver.execute_script("arguments[0].click();", publish_button)
+    print("-> Publish button clicked via JavaScript.")
+    # ===================================================================================
     
     print("-> Waiting for final confirmation...")
     wait.until(EC.url_contains("manage/videos"))
