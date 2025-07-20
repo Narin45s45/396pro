@@ -16,8 +16,8 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی گیم پلی (اصلاح نهایی برچسب)"
-VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و اصلاح نهایی انتخاب برچسب."
+VIDEO_TITLE = "ویدیوی گیم پلی (نس)"
+VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازیق."
 VIDEO_TAGS = ["گیم", "گیم پلی", "گیمر"] 
 VIDEO_CATEGORY = "ویدئو گیم" 
 
@@ -59,9 +59,10 @@ def final_login_strategy(driver, wait, username, password):
         logout_button_xpath = "//button[text()='خروج']"
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, logout_button_xpath)))
         
-        print("-> Device limit page detected. Logging out of up to 5 devices...")
+        # بر اساس درخواست شما، تعداد خروج به ۲ کاهش یافت
+        print("-> Device limit page detected. Logging out of up to 2 devices...")
         
-        for i in range(5):
+        for i in range(2): # <<<< CHANGE: Set to 2 attempts
             try:
                 first_logout_button = WebDriverWait(driver, 5).until(
                     EC.element_to_be_clickable((By.XPATH, f"({logout_button_xpath})[1]"))
@@ -149,8 +150,8 @@ try:
     print(f"-> Category '{VIDEO_CATEGORY}' selected.")
     time.sleep(2)
 
-    # ============================ FINAL TAG SELECTION LOGIC ============================
-    print("-> Entering Tags (Final Method)...")
+    # ============================ FINAL TAG SELECTION LOGIC V2 ============================
+    print("-> Entering Tags (Final Method v2)...")
     
     # Step 1: Click the main tag area to activate the input field.
     print("-> Activating the tag input area...")
@@ -167,19 +168,19 @@ try:
         tag_input.send_keys(tag)
         time.sleep(3) # Wait for suggestions to load
         
-        # Step 3: Find and click the suggestion from the list.
-        suggestion_xpath = f"//li[@role='option'][normalize-space()='{tag}']"
+        # Step 3: Find and click the FIRST suggestion from the list. This is more robust.
+        first_suggestion_xpath = "(//li[@role='option'])[1]"
         try:
-            print(f"  - Waiting for suggestion '{tag}'...")
+            print(f"  - Waiting for the first suggestion...")
             suggestion_element = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, suggestion_xpath))
+                EC.element_to_be_clickable((By.XPATH, first_suggestion_xpath))
             )
             print(f"  - Found suggestion. Clicking it...")
             driver.execute_script("arguments[0].click();", suggestion_element)
             print(f"  - ✅ Tag '{tag}' selected.")
             time.sleep(1.5) 
         except TimeoutException:
-            print(f"  - ❌ Suggestion for '{tag}' not found. Adding with Enter key as fallback.")
+            print(f"  - ❌ No suggestion appeared for '{tag}'. Adding with Enter key as fallback.")
             tag_input.send_keys(Keys.ENTER)
             time.sleep(1)
     # ===================================================================================
