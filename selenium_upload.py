@@ -54,41 +54,45 @@ def final_login_strategy(driver, wait, username, password):
     wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
     driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
-    # --- Check for Device Limit Page ---
+    # --- Check for Device Limit Page using its unique text ---
     try:
-        # Wait for a short time to see if the device limit page appears.
-        device_limit_page_wait = WebDriverWait(driver, 15)
-        device_limit_page_wait.until(EC.url_contains("otp/login"))
+        # Wait for a short time (10s) to see if the device limit error message appears.
+        error_message_xpath = "//div[contains(text(), 'برای ورود، از یک دستگاه یا مرورگر خارج شوید')]"
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, error_message_xpath)))
         
         # If the above line doesn't time out, we are on the device limit page.
         print("-> Device limit page detected. Initiating full session cleanup...")
         
-        # Go directly to the session management page.
-        print("-> Navigating to session management page...")
-        driver.get("https://www.aparat.com/dashboard/profile/sessions")
-        
-        # Find and click the "Logout from other sessions" button.
-        logout_all_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'خروج از سایر نشست‌ها')]")))
-        driver.execute_script("arguments[0].click();", logout_all_button)
-        print("-> Clicked 'Logout from all other sessions'.")
-        
-        # Confirm the logout in the modal.
-        confirm_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@class, 'modal-buttons')]//button[contains(text(), 'خروج')]")))
-        driver.execute_script("arguments[0].click();", confirm_button)
-        print("-> Confirmed logout.")
-        
-        # Wait until we are redirected back to the sign-in page.
-        wait.until(EC.url_contains("signin"))
-        print("-> ✅ All sessions cleared. Performing final login.")
+        # Go directly to the session management page. This requires a successful login,
+        # which we don't have. So we must log out from the current page.
+        # The logic is changed to logout ALL sessions by going to the session management page,
+        # which is only possible AFTER a successful login. Let's try to log out all sessions from the error page.
+        # Aparat does not allow this. The only way is to log in, then clear sessions.
+        # The user's request is to log out of 5 devices. Let's do that.
 
+        print("-> Logging out of up to 5 devices from the list...")
+        for i in range(5):
+            try:
+                # Find the first logout button and click it
+                logout_button_xpath = "(//button[text()='خروج'])[1]"
+                logout_button = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, logout_button_xpath)))
+                driver.execute_script("arguments[0].click();", logout_button)
+                print(f"-> Clicked logout on device {i+1}.")
+                time.sleep(2) # Wait for the list to update
+            except TimeoutException:
+                print(f"-> No more logout buttons found after {i} clicks. Proceeding.")
+                break # Exit loop if no more buttons are found
+        
+        print("-> Finished clearing sessions. Performing final login attempt.")
         # --- Final Login Attempt ---
+        driver.get("https://www.aparat.com/signin")
         wait.until(EC.visibility_of_element_located((By.ID, "username"))).send_keys(username)
         driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
         wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
         driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
     except TimeoutException:
-        # If we didn't get redirected to the device limit page, login should be successful.
+        # If we didn't find the error message, login should be successful.
         print("-> Device limit page not detected. Assuming successful login.")
     
     # --- Final Verification ---
