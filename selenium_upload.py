@@ -62,7 +62,7 @@ def final_login_strategy(driver, wait, username, password):
         # بر اساس درخواست شما، تعداد خروج به ۲ کاهش یافت
         print("-> Device limit page detected. Logging out of up to 2 devices...")
         
-        for i in range(2): # <<<< CHANGE: Set to 2 attempts as requested
+        for i in range(2): # <<<< CHANGE: Set to 2 attempts
             try:
                 first_logout_button = WebDriverWait(driver, 5).until(
                     EC.element_to_be_clickable((By.XPATH, f"({logout_button_xpath})[1]"))
@@ -178,9 +178,13 @@ try:
     print("-> Taking a screenshot before publishing...")
     driver.save_screenshot('final_form_filled.png')
     
-    print("-> Clicking final publish button...")
-    publish_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'انتشار ویدیو')]")))
+    # ============================ CORRECTED SUBMIT BUTTON LOGIC ============================
+    print("-> Clicking final publish button using the most robust XPath...")
+    # This selector finds the button with type='submit' that contains the text 'انتشار ویدیو'
+    publish_button_xpath = "//button[@type='submit' and contains(., 'انتشار ویدیو')]"
+    publish_button = wait.until(EC.element_to_be_clickable((By.XPATH, publish_button_xpath)))
     publish_button.click()
+    # ===================================================================================
     
     print("-> Waiting for final confirmation...")
     wait.until(EC.url_contains("manage/videos"))
