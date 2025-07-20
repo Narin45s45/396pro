@@ -178,12 +178,14 @@ try:
     print("-> Taking a screenshot before publishing...")
     driver.save_screenshot('final_form_filled.png')
     
-    # ============================ CORRECTED SUBMIT BUTTON LOGIC ============================
-    print("-> Clicking final publish button using the most robust XPath...")
+    # ============================ FINAL SUBMIT BUTTON FIX ============================
+    print("-> Clicking final publish button using JavaScript...")
     # This selector finds the button with type='submit' that contains the text 'انتشار ویدیو'
     publish_button_xpath = "//button[@type='submit' and contains(., 'انتشار ویدیو')]"
     publish_button = wait.until(EC.element_to_be_clickable((By.XPATH, publish_button_xpath)))
-    publish_button.click()
+    # Using JavaScript click which is more reliable for complex UIs
+    driver.execute_script("arguments[0].click();", publish_button)
+    print("-> Publish button clicked via JavaScript.")
     # ===================================================================================
     
     print("-> Waiting for final confirmation...")
