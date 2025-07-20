@@ -16,8 +16,8 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی گیم پلی "
-VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی ."
+VIDEO_TITLE = "ویدیوی گیم پلی )"
+VIDEO_DESCRIPTION = "یک ویدیوی جدید ازق."
 VIDEO_TAGS = ["گیم", "گیم پلی", "گیمر"] 
 VIDEO_CATEGORY = "ویدئو گیم" 
 
@@ -41,53 +41,63 @@ def download_video(url, filename):
 
 def final_login_strategy(driver, wait, username, password):
     """
-    A robust, linear login strategy. It tries to log in once. If it hits the device limit,
-    it logs out multiple sessions from the list and then performs one final login attempt.
+    A robust login strategy that retries up to 3 times. If it hits the device limit,
+    it logs out sessions and the main loop triggers a new attempt.
     """
     print("-> Starting final login strategy...")
     
-    # --- First Login Attempt ---
-    print("-> Performing initial login attempt...")
-    driver.get("https://www.aparat.com/signin")
-    wait.until(EC.visibility_of_element_located((By.ID, "username"))).send_keys(username)
-    driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-    wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
-    driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+    # <<<< CHANGE: Main login loop that tries up to 3 times >>>>
+    for attempt in range(3):
+        print(f"-> Performing login attempt {attempt + 1}/3...")
+        
+        try:
+            # --- Perform a full login sequence ---
+            driver.get("https://www.aparat.com/signin")
+            wait.until(EC.visibility_of_element_located((By.ID, "username"))).send_keys(username)
+            driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+            wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
+            driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
-    # --- Check for Device Limit Page by looking for the "خروج" buttons ---
-    try:
-        logout_button_xpath = "//button[text()='خروج']"
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, logout_button_xpath)))
-        
-        # بر اساس درخواست شما، تعداد خروج به ۲ کاهش یافت
-        print("-> Device limit page detected. Logging out of up to 2 devices...")
-        
-        for i in range(2): # <<<< CHANGE: Set to 2 attempts
+            # --- Check for Device Limit Page ---
             try:
-                first_logout_button = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, f"({logout_button_xpath})[1]"))
-                )
-                driver.execute_script("arguments[0].click();", first_logout_button)
-                print(f"-> Clicked logout on device {i+1}.")
-                time.sleep(3) 
-            except TimeoutException:
-                print(f"-> No more logout buttons found after {i} clicks. Proceeding.")
-                break
-        
-        print("-> Finished clearing sessions. Performing final login attempt.")
-        driver.get("https://www.aparat.com/signin")
-        wait.until(EC.visibility_of_element_located((By.ID, "username"))).send_keys(username)
-        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-        wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
-        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+                logout_button_xpath = "//button[text()='خروج']"
+                WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, logout_button_xpath)))
+                
+                print("-> Device limit page detected. Logging out of up to 3 devices...")
+                for i in range(3):
+                    try:
+                        first_logout_button = WebDriverWait(driver, 5).until(
+                            EC.element_to_be_clickable((By.XPATH, f"({logout_button_xpath})[1]"))
+                        )
+                        driver.execute_script("arguments[0].click();", first_logout_button)
+                        print(f"-> Clicked logout on device {i+1}.")
+                        time.sleep(3) 
+                    except TimeoutException:
+                        print(f"-> No more logout buttons found after {i} clicks.")
+                        break
+                
+                # After clearing sessions, the main loop will start a new, clean attempt.
+                print("-> Sessions cleared. A new login attempt will start.")
+                continue # This continues to the next iteration of the main `for attempt in range(3)` loop.
 
-    except TimeoutException:
-        print("-> Device limit page not detected. Assuming successful login.")
+            except TimeoutException:
+                # Device limit page was not found. We should be logged in.
+                print("-> Device limit page not detected. Verifying successful login...")
+                wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "a[href*='/dashboard']")))
+                print("-> ✅ Login successful!")
+                return # SUCCESS! Exit the function and the loop.
+
+        except Exception as e:
+            print(f"-> An error occurred during login attempt {attempt + 1}: {e}")
+            driver.save_screenshot(f'error_login_attempt_{attempt + 1}.png')
+            if attempt < 2:
+                print("-> Retrying...")
+            else:
+                print("-> All login attempts failed.")
+                raise # Re-raise the last exception if all attempts fail
     
-    # --- Final Verification ---
-    print("-> Waiting for dashboard/homepage to confirm successful login...")
-    wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "a[href*='/dashboard']")))
-    print("-> ✅ Login successful!")
+    # This part is reached if the loop finishes without a successful login.
+    raise Exception("Login failed after 3 attempts.")
 
 
 # --- Selenium Setup ---
