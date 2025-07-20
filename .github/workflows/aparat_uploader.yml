@@ -1,0 +1,36 @@
+name: Aparat Selenium Uploader Test
+
+on:
+  workflow_dispatch: # این گزینه به شما اجازه می‌دهد اسکریپت را به صورت دستی از سایت گیت‌هاب اجرا کنید
+
+jobs:
+  upload_video:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Python dependencies
+        run: pip install selenium requests
+
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@latest
+
+      - name: Run Selenium script
+        env:
+          APARAT_USERNAME: ${{ secrets.APARAT_USERNAME }}
+          APARAT_PASSWORD: ${{ secrets.APARAT_PASSWORD }}
+        run: python selenium_upload.py
+      
+      - name: Upload screenshots as artifacts
+        if: failure() # این مرحله فقط در صورت شکست اجرا می‌شود
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-screenshots
+          path: ./*.png
