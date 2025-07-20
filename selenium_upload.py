@@ -16,8 +16,8 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی گیم پلی (نسخه نهایی ورود)"
-VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و ورود نهایی."
+VIDEO_TITLE = "ویدیوی گیم پلی (ناوبری نهایی)"
+VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و ناوبری نهایی."
 VIDEO_TAGS = ["گیم", "بازی آنلاین", "گیم پلی جدید"]
 VIDEO_CATEGORY = "ویدئو گیم" 
 
@@ -56,31 +56,24 @@ def final_login_strategy(driver, wait, username, password):
 
     # --- Check for Device Limit Page by looking for the "خروج" buttons ---
     try:
-        # Wait for a short time (15s) to see if any "خروج" button appears.
-        # This is the most reliable indicator of the device limit page.
         logout_button_xpath = "//button[text()='خروج']"
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, logout_button_xpath)))
         
-        # If the above line doesn't time out, we are on the device limit page.
         print("-> Device limit page detected. Logging out of up to 5 devices...")
         
         for i in range(5):
             try:
-                # Find the first logout button in the list and click it.
                 first_logout_button = WebDriverWait(driver, 5).until(
                     EC.element_to_be_clickable((By.XPATH, f"({logout_button_xpath})[1]"))
                 )
                 driver.execute_script("arguments[0].click();", first_logout_button)
                 print(f"-> Clicked logout on device {i+1}.")
-                time.sleep(3) # Wait for the page/list to refresh after click.
+                time.sleep(3) 
             except TimeoutException:
-                # If no more logout buttons are found, we can stop.
                 print(f"-> No more logout buttons found after {i} clicks. Proceeding.")
                 break
         
         print("-> Finished clearing sessions. Performing final login attempt.")
-        # --- Final Login Attempt ---
-        # Explicitly navigate back to the signin page to be safe.
         driver.get("https://www.aparat.com/signin")
         wait.until(EC.visibility_of_element_located((By.ID, "username"))).send_keys(username)
         driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
@@ -88,12 +81,12 @@ def final_login_strategy(driver, wait, username, password):
         driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
     except TimeoutException:
-        # If we didn't find any "خروج" buttons, we assume the login should be successful.
         print("-> Device limit page not detected. Assuming successful login.")
     
     # --- Final Verification ---
-    print("-> Waiting for dashboard to confirm successful login...")
-    wait.until(EC.url_contains("dashboard"))
+    print("-> Waiting for dashboard/homepage to confirm successful login...")
+    # Wait for the profile icon to be visible as a sign of successful login
+    wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "a[href*='/dashboard']")))
     print("-> ✅ Login successful!")
 
 
@@ -119,9 +112,22 @@ try:
     # --- Use the new, final login strategy ---
     final_login_strategy(driver, wait, USERNAME, PASSWORD)
     
+    # ============================ NEW ROBUST NAVIGATION ============================
+    # Instead of driver.get(), we click the upload button like a real user.
+    print("\n-> Navigating to upload page by clicking the UI button...")
+    
+    # Find the "بارگذاری ویدیو" button at the top of the page.
+    upload_button_link = wait.until(
+        EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, '/upload')]"))
+    )
+    print("-> Found the main upload button. Clicking it...")
+    upload_button_link.click()
+    # =============================================================================
+
     # --- Continue with the upload process ---
-    print("\n-> Navigating to upload page...")
-    driver.get("https://www.aparat.com/upload")
+    print("-> Waiting for upload page to load...")
+    wait.until(EC.url_contains("upload")) # Verify we are on the correct page
+    print("-> Upload page loaded successfully.")
 
     print("-> Selecting video file for upload...")
     file_input = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
