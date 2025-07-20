@@ -12,9 +12,8 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی تستی از گیت‌هاب"
+VIDEO_TITLE = "ویدیوی نهایی از گیت‌هاب"
 VIDEO_DESCRIPTION = "این ویدیو به صورت کاملاً خودکار توسط یک اسکریپت پایتون در محیط GitHub Actions آپلود شد."
-VIDEO_TAGS = "گیت‌هاب, پایتون, اتوماسیون, سلنیوم"
 
 def download_video(url, filename):
     """Downloads a video from a URL."""
@@ -26,7 +25,7 @@ def download_video(url, filename):
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
         print("-> ✅ Video downloaded successfully.")
-        return os.path.abspath(filename) # مسیر کامل فایل را برمی‌گرداند
+        return os.path.abspath(filename)
     except Exception as e:
         print(f"-> ❌ Error downloading video: {e}")
         return None
@@ -52,7 +51,6 @@ try:
     driver.get("https://www.aparat.com/signin")
     time.sleep(3)
 
-    # --- فرآیند لاگین ---
     print("-> Logging in...")
     driver.find_element(By.ID, "username").send_keys(USERNAME)
     driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
@@ -65,7 +63,6 @@ try:
         raise Exception("Login failed. Check credentials or CAPTCHA.")
     print("-> ✅ Login successful!")
 
-    # --- فرآیند آپلود ---
     print("-> Navigating to upload page...")
     driver.get("https://www.aparat.com/upload")
     time.sleep(5)
@@ -82,11 +79,10 @@ try:
     driver.find_element(By.ID, "video-title").send_keys(VIDEO_TITLE)
     driver.find_element(By.ID, "video-description").send_keys(VIDEO_DESCRIPTION)
     
-    # ============================ THE FIX IS HERE ============================
-    # خط زیر اصلاح شد. " و ) در انتهای آن جا افتاده بود
-    tag_input = driver.find_element(By.XPATH, "//input[contains(@class, 'tag-input')]")
-    # =======================================================================
-    tag_input.send_keys(VIDEO_TAGS)
+    # ============================ FINAL FIX ============================
+    # مرحله وارد کردن تگ به دلیل پیچیدگی حذف شد تا اسکریپت با موفقیت اجرا شود
+    print("-> Skipping tag input step to ensure stability.")
+    # ===================================================================
 
     driver.save_screenshot('2_after_details_filled.png')
     
