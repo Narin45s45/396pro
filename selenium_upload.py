@@ -16,8 +16,8 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی گیم پلی (نس)"
-VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازیق."
+VIDEO_TITLE = "ویدیوی گیم پلی (نسخه نهایی موفق)"
+VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و موفق."
 VIDEO_TAGS = ["گیم", "گیم پلی", "گیمر"] 
 VIDEO_CATEGORY = "ویدئو گیم" 
 
@@ -150,8 +150,8 @@ try:
     print(f"-> Category '{VIDEO_CATEGORY}' selected.")
     time.sleep(2)
 
-    # ============================ FINAL TAG SELECTION LOGIC V2 ============================
-    print("-> Entering Tags (Final Method v2)...")
+    # ============================ SIMPLIFIED TAG LOGIC ============================
+    print("-> Entering Tags (Simplified Method)...")
     
     # Step 1: Click the main tag area to activate the input field.
     print("-> Activating the tag input area...")
@@ -166,23 +166,10 @@ try:
         print(f"-> Processing tag: '{tag}'")
         tag_input.clear()
         tag_input.send_keys(tag)
-        time.sleep(3) # Wait for suggestions to load
-        
-        # Step 3: Find and click the FIRST suggestion from the list. This is more robust.
-        first_suggestion_xpath = "(//li[@role='option'])[1]"
-        try:
-            print(f"  - Waiting for the first suggestion...")
-            suggestion_element = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, first_suggestion_xpath))
-            )
-            print(f"  - Found suggestion. Clicking it...")
-            driver.execute_script("arguments[0].click();", suggestion_element)
-            print(f"  - ✅ Tag '{tag}' selected.")
-            time.sleep(1.5) 
-        except TimeoutException:
-            print(f"  - ❌ No suggestion appeared for '{tag}'. Adding with Enter key as fallback.")
-            tag_input.send_keys(Keys.ENTER)
-            time.sleep(1)
+        # Just press Enter. No need to search or click suggestions.
+        tag_input.send_keys(Keys.ENTER)
+        print(f"  - ✅ Tag '{tag}' entered with Enter key.")
+        time.sleep(1) # A short pause between tags
     # ===================================================================================
 
     print("-> Taking a screenshot before publishing...")
