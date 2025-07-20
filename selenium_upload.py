@@ -5,7 +5,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 
-# --- خواندن اطلاعات از سکرت‌های گیت‌هاب ---
+# --- اطلاعات از سکرت‌های گیت‌هاب خوانده می‌شود ---
 USERNAME = os.environ.get("APARAT_USERNAME")
 PASSWORD = os.environ.get("APARAT_PASSWORD")
 
@@ -65,26 +65,51 @@ try:
         raise Exception("Login failed. Check credentials or CAPTCHA.")
     print("-> ✅ Login successful!")
 
-    # ============================ UPLOAD PROCESS ============================
-    # ۱. رفتن به صفحه آپلود
+    # --- فرآیند آپلود ---
     print("-> Navigating to upload page...")
     driver.get("https://www.aparat.com/upload")
     time.sleep(5)
     
-    # ۲. پیدا کردن دکمه انتخاب فایل و ارسال مسیر فایل
     print("-> Selecting video file for upload...")
     file_input = driver.find_element(By.XPATH, "//input[@type='file']")
     file_input.send_keys(video_full_path)
     print("-> File path sent to input. Waiting for processing...")
     
-    # صبر می‌کنیم تا آپارات ویدیو را پردازش اولیه کند (این زمان ممکن است نیاز به تغییر داشته باشد)
     time.sleep(15) 
     driver.save_screenshot('1_after_file_select.png')
     
-    # ۳. وارد کردن عنوان، توضیحات و تگ‌ها
     print("-> Entering video details...")
     driver.find_element(By.ID, "video-title").send_keys(VIDEO_TITLE)
     driver.find_element(By.ID, "video-description").send_keys(VIDEO_DESCRIPTION)
     
-    # وارد کردن تگ‌ها
-    tag_input = driver.find_element(By.XPATH, "//input[contains(@class, 'tag-input')]
+    # ============================ THE FIX IS HERE ============================
+    # خط زیر اصلاح شد. " و ) در انتهای آن جا افتاده بود
+    tag_input = driver.find_element(By.XPATH, "//input[contains(@class, 'tag-input')]")
+    # =======================================================================
+    tag_input.send_keys(VIDEO_TAGS)
+
+    driver.save_screenshot('2_after_details_filled.png')
+    
+    time.sleep(5)
+    print("-> Clicking final publish button...")
+    publish_button = driver.find_element(By.ID, "video-submit-btn")
+    publish_button.click()
+    
+    print("-> Waiting for final confirmation...")
+    time.sleep(10)
+    driver.save_screenshot('3_final_page.png')
+    
+    print("\n\n✅✅✅ UPLOAD PROCESS COMPLETED! ✅✅✅\nCheck your Aparat channel.")
+
+except Exception as e:
+    print(f"\n❌ SCRIPT FAILED: {e}")
+    driver.save_screenshot('error_screenshot.png')
+    print("-> An error screenshot has been saved.")
+    exit(1)
+
+finally:
+    print("-> Closing browser.")
+    driver.quit()
+    if os.path.exists(LOCAL_VIDEO_FILENAME):
+        os.remove(LOCAL_VIDEO_FILENAME)
+        print(f"-> Temporary file '{LOCAL_VIDEO_FILENAME}' has been deleted.")
