@@ -5,15 +5,15 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 
-# --- Reading credentials from GitHub Secrets ---
+# --- خواندن اطلاعات از سکرت‌های گیت‌هاب ---
 USERNAME = os.environ.get("APARAT_USERNAME")
 PASSWORD = os.environ.get("APARAT_PASSWORD")
 
-# --- Video settings ---
+# --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "GitHub Actions Test Upload"
-VIDEO_DESCRIPTION = "This video was uploaded via a script running on GitHub Actions."
+VIDEO_TITLE = "GitHub Actions Final Test"
+VIDEO_DESCRIPTION = "This video was uploaded via a script running on GitHub Actions using the correct element ID."
 
 def download_video(url, filename):
     """Downloads a video from a URL."""
@@ -30,7 +30,7 @@ def download_video(url, filename):
         print(f"-> ❌ Error downloading video: {e}")
         return False
 
-# --- Selenium setup for GitHub Actions ---
+# --- تنظیمات سلنیوم برای اجرا در گیت‌هاب ---
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
@@ -48,20 +48,19 @@ try:
 
     print("-> Opening Aparat login page...")
     driver.get("https://www.aparat.com/signin")
-    time.sleep(3) # Wait for page to load
+    time.sleep(3)
 
-    # ============================ THE FIX IS HERE ============================
-    # Using new, more stable selectors to find the input fields.
-    print("-> Locating and entering username...")
-    username_selector = "input[data-test='username-input']"
-    username_field = driver.find_element(By.CSS_SELECTOR, username_selector)
+    # ============================ THE FIX FOR GITHUB ACTIONS ============================
+    # استفاده از ID برای پیدا کردن فیلدها که شما از اینسپکت پیدا کردید
+    print("-> Locating and entering username using ID...")
+    username_field = driver.find_element(By.ID, "username")
     username_field.send_keys(USERNAME)
 
-    print("-> Locating and entering password...")
-    password_selector = "input[data-test='password-input']"
-    password_field = driver.find_element(By.CSS_SELECTOR, password_selector)
+    # فرض می‌کنیم فیلد پسورد هم id="password" دارد
+    print("-> Locating and entering password using ID...")
+    password_field = driver.find_element(By.ID, "password")
     password_field.send_keys(PASSWORD)
-    # =======================================================================
+    # ====================================================================================
     
     driver.save_screenshot('1_before_login_click.png')
     print("-> Submitting login form...")
