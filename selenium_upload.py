@@ -16,8 +16,8 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی گیم پلی (ورود هوشمند نسخه ۲)"
-VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و ورود هوشمند نسخه ۲."
+VIDEO_TITLE = "ویدیوی گیم پلی (نسخه نهایی ورود)"
+VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و ورود نهایی."
 VIDEO_TAGS = ["گیم", "بازی آنلاین", "گیم پلی جدید"]
 VIDEO_CATEGORY = "ویدئو گیم" 
 
@@ -39,67 +39,62 @@ def download_video(url, filename):
         print(f"-> ❌ Error downloading video: {e}")
         return None
 
-def smart_login(driver, wait, username, password):
+def final_login_strategy(driver, wait, username, password):
     """
-    Handles the login process, including the 'device limit' error page, by automatically
-    logging out one device and retrying. This version has more robust logic.
+    A robust, linear login strategy. It tries to log in once. If it hits the device limit,
+    it logs out ALL other sessions and then performs one final login attempt.
     """
-    MAX_LOGIN_ATTEMPTS = 5
-    for attempt in range(MAX_LOGIN_ATTEMPTS):
-        print(f"-> Starting login attempt {attempt + 1}/{MAX_LOGIN_ATTEMPTS}...")
-        driver.get("https://www.aparat.com/signin")
+    print("-> Starting final login strategy...")
+    
+    # --- First Login Attempt ---
+    print("-> Performing initial login attempt...")
+    driver.get("https://www.aparat.com/signin")
+    wait.until(EC.visibility_of_element_located((By.ID, "username"))).send_keys(username)
+    driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+    wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
+    driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
-        try:
-            # --- Step 1: Enter Credentials ---
-            wait.until(EC.visibility_of_element_located((By.ID, "username"))).send_keys(username)
-            driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-            wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
-            driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-
-            # --- Step 2: Check for Device Limit Page (with a short timeout) ---
-            try:
-                # Look for the device limit page for 10 seconds.
-                device_limit_page_wait = WebDriverWait(driver, 10)
-                first_logout_button = device_limit_page_wait.until(
-                    EC.element_to_be_clickable((By.XPATH, "(//button[text()='خروج'])[1]"))
-                )
-                
-                # If we find it, we are on the error page.
-                print("-> Device limit page detected. Logging out one session...")
-                driver.execute_script("arguments[0].click();", first_logout_button)
-                
-                # **CRITICAL CHANGE**: Wait explicitly to be redirected back to the sign-in page.
-                print("-> Waiting for redirect back to sign-in page...")
-                wait.until(EC.url_contains("signin"))
-                print("-> Redirected. Retrying login...")
-                continue # Go to the next attempt in the loop
-
-            except TimeoutException:
-                # If the device limit page did NOT appear after 10 seconds, we assume login should be successful.
-                # Now, we wait for the dashboard to confirm.
-                print("-> Device limit page not found. Waiting for dashboard...")
-                try:
-                    wait.until(EC.url_contains("dashboard"))
-                    print("-> ✅ Login successful!")
-                    return # Success, exit the function
-                except TimeoutException:
-                    # If we don't get the dashboard either, something is wrong.
-                    driver.save_screenshot(f'error_login_attempt_{attempt + 1}.png')
-                    if attempt < MAX_LOGIN_ATTEMPTS - 1:
-                        print("-> Login failed (timeout waiting for dashboard). Retrying...")
-                        continue
-                    else:
-                        raise Exception("Login failed. Timed out waiting for dashboard.")
+    # --- Check for Device Limit Page ---
+    try:
+        # Wait for a short time to see if the device limit page appears.
+        device_limit_page_wait = WebDriverWait(driver, 15)
+        device_limit_page_wait.until(EC.url_contains("otp/login"))
         
-        except Exception as e:
-            print(f"-> An unexpected error occurred during login attempt {attempt + 1}: {e}")
-            driver.save_screenshot(f'error_unexpected_login_attempt_{attempt + 1}.png')
-            if attempt < MAX_LOGIN_ATTEMPTS - 1:
-                continue
-            else:
-                raise
+        # If the above line doesn't time out, we are on the device limit page.
+        print("-> Device limit page detected. Initiating full session cleanup...")
+        
+        # Go directly to the session management page.
+        print("-> Navigating to session management page...")
+        driver.get("https://www.aparat.com/dashboard/profile/sessions")
+        
+        # Find and click the "Logout from other sessions" button.
+        logout_all_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'خروج از سایر نشست‌ها')]")))
+        driver.execute_script("arguments[0].click();", logout_all_button)
+        print("-> Clicked 'Logout from all other sessions'.")
+        
+        # Confirm the logout in the modal.
+        confirm_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@class, 'modal-buttons')]//button[contains(text(), 'خروج')]")))
+        driver.execute_script("arguments[0].click();", confirm_button)
+        print("-> Confirmed logout.")
+        
+        # Wait until we are redirected back to the sign-in page.
+        wait.until(EC.url_contains("signin"))
+        print("-> ✅ All sessions cleared. Performing final login.")
 
-    raise Exception("Could not log in after all attempts.")
+        # --- Final Login Attempt ---
+        wait.until(EC.visibility_of_element_located((By.ID, "username"))).send_keys(username)
+        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+        wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
+        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+
+    except TimeoutException:
+        # If we didn't get redirected to the device limit page, login should be successful.
+        print("-> Device limit page not detected. Assuming successful login.")
+    
+    # --- Final Verification ---
+    print("-> Waiting for dashboard to confirm successful login...")
+    wait.until(EC.url_contains("dashboard"))
+    print("-> ✅ Login successful!")
 
 
 # --- Selenium Setup ---
@@ -121,8 +116,8 @@ try:
     if not video_full_path:
         raise Exception("Failed to download the video file.")
 
-    # --- Use the new smart login function ---
-    smart_login(driver, wait, USERNAME, PASSWORD)
+    # --- Use the new, final login strategy ---
+    final_login_strategy(driver, wait, USERNAME, PASSWORD)
     
     # --- Continue with the upload process ---
     print("\n-> Navigating to upload page...")
