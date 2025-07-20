@@ -5,9 +5,9 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
+# WebDriverWait را فقط برای بخش‌های ضروری اضافه می‌کنیم
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 # --- اطلاعات از سکرت‌های گیت‌هاب خوانده می‌شود ---
 USERNAME = os.environ.get("APARAT_USERNAME")
@@ -16,9 +16,9 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی گیم پلی تست (رفع خطا)"
-VIDEO_DESCRIPTION = "این یک ویدیو است."
-VIDEO_TAGS = ["گیم", "بازی آنلاین", "گیم پلی جدید", "تست"]
+VIDEO_TITLE = "ویدیوی گیم پلی (کد اصلی)"
+VIDEO_DESCRIPTION = "این یک ویدیوی تستشده است."
+VIDEO_TAGS = ["گیم", "بازی آنلاین", "گیم پلی جدید"]
 VIDEO_CATEGORY = "ویدئو گیم" 
 
 # --- ثابت‌های سلنیوم ---
@@ -48,6 +48,7 @@ chrome_options.add_argument("--window-size=1920,1080")
 chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
 driver = webdriver.Chrome(options=chrome_options)
+# WebDriverWait را برای استفاده در بخش‌های خاص مقداردهی می‌کنیم
 wait = WebDriverWait(driver, WAIT_TIMEOUT)
 
 try:
@@ -58,86 +59,84 @@ try:
     if not video_full_path:
         raise Exception("Failed to download the video file.")
 
+    # ============================ بازگشت به بلوک ورود اصلی شما که کار می‌کرد ============================
     print("-> Opening Aparat login page...")
     driver.get("https://www.aparat.com/signin")
+    time.sleep(4) # استفاده از sleep اصلی شما
 
     print("-> Logging in...")
-    wait.until(EC.visibility_of_element_located((By.NAME, "username"))).send_keys(USERNAME)
+    driver.find_element(By.ID, "username").send_keys(USERNAME)
     driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-
-    wait.until(EC.visibility_of_element_located((By.NAME, "password"))).send_keys(PASSWORD)
+    time.sleep(4) # استفاده از sleep اصلی شما
+    driver.find_element(By.ID, "password").send_keys(PASSWORD)
     driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+    time.sleep(6) # افزایش زمان برای اطمینان از بارگذاری داشبورد
 
-    print("-> Waiting for login to complete...")
-    wait.until(EC.url_contains("dashboard"))
+    if "signin" in driver.current_url:
+        raise Exception("Login failed. Check credentials or CAPTCHA.")
     print("-> ✅ Login successful!")
+    # =======================================================================================
 
     print("-> Navigating to upload page...")
     driver.get("https://www.aparat.com/upload")
-
+    time.sleep(5)
+    
     print("-> Selecting video file for upload...")
+    # منتظر می‌مانیم تا دکمه آپلود آماده شود
     file_input = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
     file_input.send_keys(video_full_path)
-    print("-> File path sent. Waiting for upload to process...")
-
+    print("-> File path sent. Waiting for processing...")
+    
+    # منتظر می‌مانیم تا فیلد عنوان ظاهر شود
     title_field = wait.until(EC.visibility_of_element_located((By.ID, "video-title")))
-    print("-> Upload processing complete. Entering details...")
     
-    title_field.clear()
+    print("-> Entering video details...")
     title_field.send_keys(VIDEO_TITLE)
+    driver.find_element(By.ID, "video-description").send_keys(VIDEO_DESCRIPTION)
     
-    description_field = driver.find_element(By.ID, "video-description")
-    description_field.clear()
-    description_field.send_keys(VIDEO_DESCRIPTION)
-    
-    # ============================ راه‌حل جدید برای انتخاب دسته‌بندی ============================
-    print("-> Selecting Category...")
-    
+    # ============================ تنها بخش اصلاح شده: انتخاب دسته‌بندی ============================
+    print("-> Selecting Category (Robust Method)...")
     # ۱. روی دکمه بازکننده دسته‌بندی کلیک می‌کنیم.
     category_trigger = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@id='FField_category']//div[@role='button']")))
     category_trigger.click()
-    print("-> Category dropdown opened.")
     
-    # ۲. منتظر می‌مانیم تا گزینه مورد نظر ما در لیست ظاهر و "قابل مشاهده" شود.
+    # ۲. منتظر می‌مانیم تا گزینه مورد نظر ما در لیست ظاهر شود.
     category_option_xpath = f"//li[normalize-space()='{VIDEO_CATEGORY}']"
     category_option = wait.until(EC.visibility_of_element_located((By.XPATH, category_option_xpath)))
-    print(f"-> Category option '{VIDEO_CATEGORY}' is now visible.")
     
-    # ۳. با استفاده از جاوا اسکریپت روی گزینه کلیک می‌کنیم. این روش بسیار قابل اعتماد است.
-    driver.execute_script("arguments[0].scrollIntoView(true);", category_option) # ابتدا مطمئن می‌شویم عنصر در دید است
+    # ۳. با استفاده از جاوا اسکریپت کلیک می‌کنیم.
     driver.execute_script("arguments[0].click();", category_option)
-    print(f"-> Category '{VIDEO_CATEGORY}' selected via JavaScript click.")
-    time.sleep(1) # یک ثانیه وقفه کوتاه برای اطمینان از ثبت انتخاب
+    print(f"-> Category '{VIDEO_CATEGORY}' selected.")
+    time.sleep(2) # وقفه کوتاه برای اطمینان
     # =======================================================================================
-
+    
     print("-> Entering Tags...")
-    tag_input = wait.until(EC.visibility_of_element_located((By.XPATH, "//div[@id='FField_tags']//input")))
+    # پیدا کردن فیلد ورودی تگ‌ها
+    tag_input = driver.find_element(By.XPATH, "//div[@id='FField_tags']//input")
     for tag in VIDEO_TAGS:
         tag_input.send_keys(tag)
         tag_input.send_keys(Keys.ENTER)
-        print(f"  - Tag '{tag}' entered.")
-        time.sleep(0.5)
+        time.sleep(1)
 
-    print("-> Taking a screenshot before publishing...")
     driver.save_screenshot('final_form_filled.png')
+    time.sleep(2)
     
     print("-> Clicking final publish button...")
     publish_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'انتشار ویدیو')]")))
     publish_button.click()
     
     print("-> Waiting for final confirmation...")
+    # منتظر می‌مانیم تا به صفحه مدیریت ویدیوها منتقل شویم
     wait.until(EC.url_contains("manage/videos"))
     driver.save_screenshot('final_page_after_publish.png')
     
-    print("\n\n✅✅✅ UPLOAD PROCESS COMPLETED SUCCESSFULLY! ✅✅✅\n")
+    print("\n\n✅✅✅ UPLOAD PROCESS COMPLETED! ✅✅✅\n")
 
 except Exception as e:
     print(f"\n❌ SCRIPT FAILED: {e}")
-    # گرفتن اسکرین‌شات در لحظه خطا برای دیباگ کردن بسیار مهم است
     driver.save_screenshot('error_screenshot.png')
     print("-> An error screenshot has been saved.")
-    # در محیط CI/CD این کد را برای نشان دادن شکست فعال کنید
-    # exit(1) 
+    # exit(1)
 
 finally:
     print("-> Closing browser.")
