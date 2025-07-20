@@ -3,19 +3,19 @@ import time
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys # برای استفاده از کلید Enter
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 
-# --- خواندن اطلاعات از سکرت‌های گیت‌هاب ---
+# --- اطلاعات از سکرت‌های گیت‌هاب خوانده می‌شود ---
 USERNAME = os.environ.get("APARAT_USERNAME")
 PASSWORD = os.environ.get("APARAT_PASSWORD")
 
-# --- تنظیمات ویدیو طبق خواسته شما ---
+# --- تنظیمات ویدیو (متن‌های معمولی طبق خواسته شما) ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "گیم پلی بازی جدید"
-VIDEO_DESCRIPTION = "ویدیوی جدید گیم پلی که به صورت خودکار بارگذاری شد."
-VIDEO_TAGS = ["گیم", "گیم پلی", "بازی جدید"] # لیست تگ‌ها (حداقل ۳ عدد)
+VIDEO_TITLE = "ویدیوی گیم پلی"
+VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی."
+VIDEO_TAGS = ["گیم", "بازی آنلاین", "گیم پلی جدید"]
 
 def download_video(url, filename):
     print("-> Downloading video...")
@@ -79,27 +79,34 @@ try:
     driver.find_element(By.ID, "video-title").send_keys(VIDEO_TITLE)
     driver.find_element(By.ID, "video-description").send_keys(VIDEO_DESCRIPTION)
     
-    # ============================ FINAL FIX IMPLEMENTED ============================
+    # ============================ FINAL ATTEMPT BASED ON YOUR HTML ============================
     # ۱. انتخاب دسته‌بندی
     print("-> Selecting Category...")
-    driver.find_element(By.ID, "video-category-btn").click()
-    time.sleep(1)
-    # در اینجا "بازی" را به عنوان دسته‌بندی انتخاب می‌کنیم
+    # پیدا کردن دکمه بازکننده دسته‌بندی بر اساس ساختار HTML که فرستادید
+    category_trigger = driver.find_element(By.XPATH, "//div[@id='FField_category']//div[@role='button']")
+    category_trigger.click()
+    time.sleep(2)
+    # انتخاب گزینه "بازی" از لیست باز شده
     driver.find_element(By.XPATH, "//li[contains(text(), 'بازی')]").click()
-    time.sleep(1)
+    time.sleep(2)
 
     # ۲. وارد کردن تگ‌ها
     print("-> Entering Tags...")
+    # پیدا کردن دکمه بازکننده تگ‌ها
+    tag_trigger = driver.find_element(By.XPATH, "//div[@id='FField_tags']//div[@role='button']")
+    tag_trigger.click()
+    time.sleep(2)
+    # پیدا کردن فیلد ورودی تگ که بعد از کلیک ظاهر می‌شود
     tag_input = driver.find_element(By.XPATH, "//div[contains(@class, 'tag-input-container')]//input")
     for tag in VIDEO_TAGS:
         tag_input.send_keys(tag)
         tag_input.send_keys(Keys.ENTER)
-        time.sleep(1) # مکث کوتاه بین هر تگ
-    # ===============================================================================
+        time.sleep(1)
+    # =======================================================================================
 
     driver.save_screenshot('final_form_filled.png')
-    
     time.sleep(5)
+    
     print("-> Clicking final publish button...")
     publish_button = driver.find_element(By.XPATH, "//button[contains(., 'انتشار ویدیو')]")
     publish_button.click()
@@ -108,7 +115,7 @@ try:
     time.sleep(15)
     driver.save_screenshot('final_page_after_publish.png')
     
-    print("\n\n✅✅✅ UPLOAD PROCESS COMPLETED! ✅✅✅\nCheck your Aparat channel.")
+    print("\n\n✅✅✅ UPLOAD PROCESS COMPLETED! ✅✅✅\n")
 
 except Exception as e:
     print(f"\n❌ SCRIPT FAILED: {e}")
