@@ -112,17 +112,17 @@ try:
     # --- Use the new, final login strategy ---
     final_login_strategy(driver, wait, USERNAME, PASSWORD)
     
-    # ============================ NEW ROBUST NAVIGATION ============================
+    # ============================ CORRECTED ROBUST NAVIGATION ============================
     # Instead of driver.get(), we click the upload button like a real user.
     print("\n-> Navigating to upload page by clicking the UI button...")
     
-    # Find the "بارگذاری ویدیو" button at the top of the page.
-    upload_button_link = wait.until(
-        EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, '/upload')]"))
+    # Find the "بارگذاری ویدیو" button using the correct XPath for a button element.
+    upload_button = wait.until(
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'بارگذاری ویدیو')]"))
     )
     print("-> Found the main upload button. Clicking it...")
-    upload_button_link.click()
-    # =============================================================================
+    upload_button.click()
+    # ===================================================================================
 
     # --- Continue with the upload process ---
     print("-> Waiting for upload page to load...")
