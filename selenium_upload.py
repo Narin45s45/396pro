@@ -12,11 +12,10 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی نهایی از گیت‌هاب (موفقیت‌آمیز)"
-VIDEO_DESCRIPTION = "این ویدیو به صورت کاملاً خودکار توسط یک اسکریپت پایتون در محیط GitHub Actions آپلود شد."
+VIDEO_TITLE = "آخرین تلاش آپلود از گیت‌هاب"
+VIDEO_DESCRIPTION = "این آخرین تست برای آپلود خودکار ویدیو است."
 
 def download_video(url, filename):
-    """Downloads a video from a URL."""
     print("-> Downloading video...")
     try:
         response = requests.get(url, stream=True, timeout=60)
@@ -72,7 +71,7 @@ try:
     file_input.send_keys(video_full_path)
     print("-> File path sent to input. Waiting for processing...")
     
-    time.sleep(20) # افزایش زمان انتظار برای پردازش ویدیو
+    time.sleep(20)
     driver.save_screenshot('1_after_file_select.png')
     
     print("-> Entering video details...")
@@ -82,15 +81,17 @@ try:
     print("-> Skipping tag input step to ensure stability.")
     driver.save_screenshot('2_after_details_filled.png')
     
-    # ============================ THE FINAL FIX ============================
-    # دکمه انتشار را با استفاده از متن آن پیدا می‌کنیم
-    print("-> Clicking final publish button by its text...")
-    publish_button = driver.find_element(By.XPATH, "//button[contains(text(), 'انتشار')]")
+    time.sleep(5)
+    
+    # ============================ THE FINAL FIX ATTEMPT ============================
+    # پیدا کردن دکمه بر اساس متن دقیق "انتشار ویدیو" که داخل تگ‌های دیگر است
+    print("-> Clicking final publish button by its precise text...")
+    publish_button = driver.find_element(By.XPATH, "//button[contains(., 'انتشار ویدیو')]")
     publish_button.click()
-    # =======================================================================
+    # ===============================================================================
     
     print("-> Waiting for final confirmation...")
-    time.sleep(15) # صبر برای دیدن صفحه نهایی
+    time.sleep(15)
     driver.save_screenshot('3_final_page.png')
     
     print("\n\n✅✅✅ UPLOAD PROCESS COMPLETED! ✅✅✅\nCheck your Aparat channel.")
