@@ -150,35 +150,45 @@ try:
     print(f"-> Category '{VIDEO_CATEGORY}' selected.")
     time.sleep(2)
 
-    # ============================ NEW TAG SELECTION LOGIC ============================
-    print("-> Entering Tags (Selectable Method)...")
+    # ============================ REVISED TAG SELECTION LOGIC ============================
+    print("-> Entering Tags (Selectable Method v2)...")
     tag_input = wait.until(EC.visibility_of_element_located((By.XPATH, "//div[@id='FField_tags']//input")))
     
     for tag in VIDEO_TAGS:
         print(f"-> Processing tag: '{tag}'")
         tag_input.clear()
         tag_input.send_keys(tag)
-        # Wait a moment for the suggestions to appear via AJAX
-        time.sleep(2) 
+        # Wait a moment for the suggestions to appear
+        time.sleep(3) 
         
-        # A robust XPath to find the suggestion. It looks for a list item that appears
-        # after typing, and its text exactly matches the tag.
-        suggestion_xpath = f"//ul[contains(@class, 'tag-suggestion-list')]//li[normalize-space()='{tag}']"
+        # A more robust XPath looking for a selectable list item (role='option')
+        suggestion_xpath = f"//li[@role='option'][normalize-space()='{tag}']"
         
         try:
-            print(f"  - Waiting for suggestion '{tag}' to be clickable...")
+            print(f"  - Waiting for suggestion '{tag}' with primary XPath...")
             suggestion_element = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, suggestion_xpath))
             )
-            print(f"  - Found suggestion. Clicking it...")
-            suggestion_element.click()
+            print(f"  - Found suggestion. Clicking with JavaScript...")
+            driver.execute_script("arguments[0].click();", suggestion_element)
             print(f"  - ✅ Tag '{tag}' selected.")
-            time.sleep(1) # Wait for the UI to update after the tag is added
+            time.sleep(1.5) # Wait for UI to update
         except TimeoutException:
-            print(f"  - ❌ Suggestion for '{tag}' not found. Adding with Enter key as a fallback.")
-            # If the suggestion isn't found, press Enter to add the tag as is.
-            tag_input.send_keys(Keys.ENTER)
-            time.sleep(1)
+            print(f"  - ❌ Primary XPath failed. Trying a simpler fallback...")
+            try:
+                # Fallback XPath: less strict, just looks for the text in any list item
+                fallback_xpath = f"//li[normalize-space()='{tag}']"
+                suggestion_element = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, fallback_xpath))
+                )
+                print(f"  - Found suggestion with fallback. Clicking with JavaScript...")
+                driver.execute_script("arguments[0].click();", suggestion_element)
+                print(f"  - ✅ Tag '{tag}' selected.")
+                time.sleep(1.5)
+            except TimeoutException:
+                print(f"  - ❌ All selection methods failed. Adding with Enter key as final fallback.")
+                tag_input.send_keys(Keys.ENTER)
+                time.sleep(1)
     # ===================================================================================
 
     print("-> Taking a screenshot before publishing...")
