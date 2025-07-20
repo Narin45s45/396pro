@@ -16,9 +16,8 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی گیم پلی (اصلاح برچسب)"
-VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و اصلاح انتخاب برچسب."
-# لیست برچسب‌ها بر اساس درخواست شما به‌روز شد
+VIDEO_TITLE = "ویدیوی گیم پلی (اصلاح نهایی برچسب)"
+VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و اصلاح نهایی انتخاب برچسب."
 VIDEO_TAGS = ["گیم", "گیم پلی", "گیمر"] 
 VIDEO_CATEGORY = "ویدئو گیم" 
 
@@ -150,45 +149,39 @@ try:
     print(f"-> Category '{VIDEO_CATEGORY}' selected.")
     time.sleep(2)
 
-    # ============================ REVISED TAG SELECTION LOGIC ============================
-    print("-> Entering Tags (Selectable Method v2)...")
-    tag_input = wait.until(EC.visibility_of_element_located((By.XPATH, "//div[@id='FField_tags']//input")))
+    # ============================ FINAL TAG SELECTION LOGIC ============================
+    print("-> Entering Tags (Final Method)...")
     
+    # Step 1: Click the main tag area to activate the input field.
+    print("-> Activating the tag input area...")
+    tag_area_trigger = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@id='FField_tags']//div[@role='button']")))
+    tag_area_trigger.click()
+    
+    # Step 2: Now find the actual input field that has appeared.
+    print("-> Finding the active tag input field...")
+    tag_input = wait.until(EC.visibility_of_element_located((By.XPATH, "//div[@id='FField_tags']//input[not(@type='hidden')]")))
+
     for tag in VIDEO_TAGS:
         print(f"-> Processing tag: '{tag}'")
         tag_input.clear()
         tag_input.send_keys(tag)
-        # Wait a moment for the suggestions to appear
-        time.sleep(3) 
+        time.sleep(3) # Wait for suggestions to load
         
-        # A more robust XPath looking for a selectable list item (role='option')
+        # Step 3: Find and click the suggestion from the list.
         suggestion_xpath = f"//li[@role='option'][normalize-space()='{tag}']"
-        
         try:
-            print(f"  - Waiting for suggestion '{tag}' with primary XPath...")
+            print(f"  - Waiting for suggestion '{tag}'...")
             suggestion_element = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, suggestion_xpath))
             )
-            print(f"  - Found suggestion. Clicking with JavaScript...")
+            print(f"  - Found suggestion. Clicking it...")
             driver.execute_script("arguments[0].click();", suggestion_element)
             print(f"  - ✅ Tag '{tag}' selected.")
-            time.sleep(1.5) # Wait for UI to update
+            time.sleep(1.5) 
         except TimeoutException:
-            print(f"  - ❌ Primary XPath failed. Trying a simpler fallback...")
-            try:
-                # Fallback XPath: less strict, just looks for the text in any list item
-                fallback_xpath = f"//li[normalize-space()='{tag}']"
-                suggestion_element = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, fallback_xpath))
-                )
-                print(f"  - Found suggestion with fallback. Clicking with JavaScript...")
-                driver.execute_script("arguments[0].click();", suggestion_element)
-                print(f"  - ✅ Tag '{tag}' selected.")
-                time.sleep(1.5)
-            except TimeoutException:
-                print(f"  - ❌ All selection methods failed. Adding with Enter key as final fallback.")
-                tag_input.send_keys(Keys.ENTER)
-                time.sleep(1)
+            print(f"  - ❌ Suggestion for '{tag}' not found. Adding with Enter key as fallback.")
+            tag_input.send_keys(Keys.ENTER)
+            time.sleep(1)
     # ===================================================================================
 
     print("-> Taking a screenshot before publishing...")
