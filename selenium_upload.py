@@ -148,7 +148,6 @@ finally:
             print(f"-> Temporary file '{LOCAL_VIDEO_FILENAME}' has been deleted.")
         except OSError as e:
             print(f"-> Error deleting file {LOCAL_VIDEO_FILENAME}: {e}")
-```
 
 ### خلاصه تغییرات:
 
