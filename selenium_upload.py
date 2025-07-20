@@ -42,7 +42,7 @@ def download_video(url, filename):
 def final_login_strategy(driver, wait, username, password):
     """
     A robust, linear login strategy. It tries to log in once. If it hits the device limit,
-    it logs out ALL other sessions and then performs one final login attempt.
+    it logs out multiple sessions from the list and then performs one final login attempt.
     """
     print("-> Starting final login strategy...")
     
@@ -54,37 +54,33 @@ def final_login_strategy(driver, wait, username, password):
     wait.until(EC.visibility_of_element_located((By.ID, "password"))).send_keys(password)
     driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
-    # --- Check for Device Limit Page using its unique text ---
+    # --- Check for Device Limit Page by looking for the "خروج" buttons ---
     try:
-        # Wait for a short time (10s) to see if the device limit error message appears.
-        error_message_xpath = "//div[contains(text(), 'برای ورود، از یک دستگاه یا مرورگر خارج شوید')]"
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, error_message_xpath)))
+        # Wait for a short time (15s) to see if any "خروج" button appears.
+        # This is the most reliable indicator of the device limit page.
+        logout_button_xpath = "//button[text()='خروج']"
+        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, logout_button_xpath)))
         
         # If the above line doesn't time out, we are on the device limit page.
-        print("-> Device limit page detected. Initiating full session cleanup...")
+        print("-> Device limit page detected. Logging out of up to 5 devices...")
         
-        # Go directly to the session management page. This requires a successful login,
-        # which we don't have. So we must log out from the current page.
-        # The logic is changed to logout ALL sessions by going to the session management page,
-        # which is only possible AFTER a successful login. Let's try to log out all sessions from the error page.
-        # Aparat does not allow this. The only way is to log in, then clear sessions.
-        # The user's request is to log out of 5 devices. Let's do that.
-
-        print("-> Logging out of up to 5 devices from the list...")
         for i in range(5):
             try:
-                # Find the first logout button and click it
-                logout_button_xpath = "(//button[text()='خروج'])[1]"
-                logout_button = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, logout_button_xpath)))
-                driver.execute_script("arguments[0].click();", logout_button)
+                # Find the first logout button in the list and click it.
+                first_logout_button = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, f"({logout_button_xpath})[1]"))
+                )
+                driver.execute_script("arguments[0].click();", first_logout_button)
                 print(f"-> Clicked logout on device {i+1}.")
-                time.sleep(2) # Wait for the list to update
+                time.sleep(3) # Wait for the page/list to refresh after click.
             except TimeoutException:
+                # If no more logout buttons are found, we can stop.
                 print(f"-> No more logout buttons found after {i} clicks. Proceeding.")
-                break # Exit loop if no more buttons are found
+                break
         
         print("-> Finished clearing sessions. Performing final login attempt.")
         # --- Final Login Attempt ---
+        # Explicitly navigate back to the signin page to be safe.
         driver.get("https://www.aparat.com/signin")
         wait.until(EC.visibility_of_element_located((By.ID, "username"))).send_keys(username)
         driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
@@ -92,7 +88,7 @@ def final_login_strategy(driver, wait, username, password):
         driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
     except TimeoutException:
-        # If we didn't find the error message, login should be successful.
+        # If we didn't find any "خروج" buttons, we assume the login should be successful.
         print("-> Device limit page not detected. Assuming successful login.")
     
     # --- Final Verification ---
