@@ -16,8 +16,9 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی گیم پلی (نسخه نهایی موفق)"
-VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و موفق."
+VIDEO_TITLE = "ویدیوی گیم پلی (اصلاح برچسب)"
+VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و اصلاح انتخاب برچسب."
+# لیست برچسب‌ها بر اساس درخواست شما به‌روز شد
 VIDEO_TAGS = ["گیم", "گیم پلی", "گیمر"] 
 VIDEO_CATEGORY = "ویدئو گیم" 
 
@@ -59,10 +60,9 @@ def final_login_strategy(driver, wait, username, password):
         logout_button_xpath = "//button[text()='خروج']"
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, logout_button_xpath)))
         
-        # بر اساس درخواست شما، تعداد خروج به ۲ کاهش یافت
-        print("-> Device limit page detected. Logging out of up to 2 devices...")
+        print("-> Device limit page detected. Logging out of up to 5 devices...")
         
-        for i in range(2): # <<<< CHANGE: Set to 2 attempts
+        for i in range(5):
             try:
                 first_logout_button = WebDriverWait(driver, 5).until(
                     EC.element_to_be_clickable((By.XPATH, f"({logout_button_xpath})[1]"))
@@ -150,43 +150,53 @@ try:
     print(f"-> Category '{VIDEO_CATEGORY}' selected.")
     time.sleep(2)
 
-    # ============================ FINAL ROBUST TAG LOGIC ============================
-    print("-> Entering Tags (Final Robust Method)...")
+    # ============================ REVISED TAG SELECTION LOGIC ============================
+    print("-> Entering Tags (Selectable Method v2)...")
+    tag_input = wait.until(EC.visibility_of_element_located((By.XPATH, "//div[@id='FField_tags']//input")))
     
-    # Step 1: Click the main tag area to activate the input field.
-    print("-> Activating the tag input area...")
-    tag_area_trigger = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@id='FField_tags']//div[@role='button']")))
-    tag_area_trigger.click()
-    time.sleep(1) # Add a small pause after clicking
-    
-    # Step 2: Now find the actual input field that has appeared.
-    print("-> Finding the active tag input field...")
-    tag_input = wait.until(EC.visibility_of_element_located((By.XPATH, "//div[@id='FField_tags']//input[not(@type='hidden')]")))
-
     for tag in VIDEO_TAGS:
         print(f"-> Processing tag: '{tag}'")
         tag_input.clear()
-        # Send keys with a small delay to ensure they are registered
         tag_input.send_keys(tag)
-        time.sleep(0.5) # Wait half a second after typing
-        # Just press Enter. This is the most reliable method.
-        tag_input.send_keys(Keys.ENTER)
-        print(f"  - ✅ Tag '{tag}' entered with Enter key.")
-        time.sleep(1.5) # A longer pause to let the UI update the tag list
+        # Wait a moment for the suggestions to appear
+        time.sleep(3) 
+        
+        # A more robust XPath looking for a selectable list item (role='option')
+        suggestion_xpath = f"//li[@role='option'][normalize-space()='{tag}']"
+        
+        try:
+            print(f"  - Waiting for suggestion '{tag}' with primary XPath...")
+            suggestion_element = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, suggestion_xpath))
+            )
+            print(f"  - Found suggestion. Clicking with JavaScript...")
+            driver.execute_script("arguments[0].click();", suggestion_element)
+            print(f"  - ✅ Tag '{tag}' selected.")
+            time.sleep(1.5) # Wait for UI to update
+        except TimeoutException:
+            print(f"  - ❌ Primary XPath failed. Trying a simpler fallback...")
+            try:
+                # Fallback XPath: less strict, just looks for the text in any list item
+                fallback_xpath = f"//li[normalize-space()='{tag}']"
+                suggestion_element = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, fallback_xpath))
+                )
+                print(f"  - Found suggestion with fallback. Clicking with JavaScript...")
+                driver.execute_script("arguments[0].click();", suggestion_element)
+                print(f"  - ✅ Tag '{tag}' selected.")
+                time.sleep(1.5)
+            except TimeoutException:
+                print(f"  - ❌ All selection methods failed. Adding with Enter key as final fallback.")
+                tag_input.send_keys(Keys.ENTER)
+                time.sleep(1)
     # ===================================================================================
 
     print("-> Taking a screenshot before publishing...")
     driver.save_screenshot('final_form_filled.png')
     
-    # ============================ FINAL SUBMIT BUTTON FIX ============================
-    print("-> Clicking final publish button using JavaScript...")
-    # This selector finds the button with type='submit' that contains the text 'انتشار ویدیو'
-    publish_button_xpath = "//button[@type='submit' and contains(., 'انتشار ویدیو')]"
-    publish_button = wait.until(EC.element_to_be_clickable((By.XPATH, publish_button_xpath)))
-    # Using JavaScript click which is more reliable for complex UIs
-    driver.execute_script("arguments[0].click();", publish_button)
-    print("-> Publish button clicked via JavaScript.")
-    # ===================================================================================
+    print("-> Clicking final publish button...")
+    publish_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'انتشار ویدیو')]")))
+    publish_button.click()
     
     print("-> Waiting for final confirmation...")
     wait.until(EC.url_contains("manage/videos"))
