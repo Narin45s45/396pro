@@ -12,7 +12,7 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی نهایی از گیت‌هاب"
+VIDEO_TITLE = "ویدیوی نهایی از گیت‌هاب (موفقیت‌آمیز)"
 VIDEO_DESCRIPTION = "این ویدیو به صورت کاملاً خودکار توسط یک اسکریپت پایتون در محیط GitHub Actions آپلود شد."
 
 def download_video(url, filename):
@@ -72,27 +72,25 @@ try:
     file_input.send_keys(video_full_path)
     print("-> File path sent to input. Waiting for processing...")
     
-    time.sleep(15) 
+    time.sleep(20) # افزایش زمان انتظار برای پردازش ویدیو
     driver.save_screenshot('1_after_file_select.png')
     
     print("-> Entering video details...")
     driver.find_element(By.ID, "video-title").send_keys(VIDEO_TITLE)
     driver.find_element(By.ID, "video-description").send_keys(VIDEO_DESCRIPTION)
     
-    # ============================ FINAL FIX ============================
-    # مرحله وارد کردن تگ به دلیل پیچیدگی حذف شد تا اسکریپت با موفقیت اجرا شود
     print("-> Skipping tag input step to ensure stability.")
-    # ===================================================================
-
     driver.save_screenshot('2_after_details_filled.png')
     
-    time.sleep(5)
-    print("-> Clicking final publish button...")
-    publish_button = driver.find_element(By.ID, "video-submit-btn")
+    # ============================ THE FINAL FIX ============================
+    # دکمه انتشار را با استفاده از متن آن پیدا می‌کنیم
+    print("-> Clicking final publish button by its text...")
+    publish_button = driver.find_element(By.XPATH, "//button[contains(text(), 'انتشار')]")
     publish_button.click()
+    # =======================================================================
     
     print("-> Waiting for final confirmation...")
-    time.sleep(10)
+    time.sleep(15) # صبر برای دیدن صفحه نهایی
     driver.save_screenshot('3_final_page.png')
     
     print("\n\n✅✅✅ UPLOAD PROCESS COMPLETED! ✅✅✅\nCheck your Aparat channel.")
