@@ -5,11 +5,11 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 
-# --- خواندن اطلاعات از سکرت‌های گیت‌هاب ---
+# --- Reading credentials from GitHub Secrets ---
 USERNAME = os.environ.get("APARAT_USERNAME")
 PASSWORD = os.environ.get("APARAT_PASSWORD")
 
-# --- تنظیمات ویدیو ---
+# --- Video settings ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
 VIDEO_TITLE = "GitHub Actions Test Upload"
@@ -30,12 +30,12 @@ def download_video(url, filename):
         print(f"-> ❌ Error downloading video: {e}")
         return False
 
-# --- تنظیمات سلنیوم برای اجرا در گیت‌هاب ---
+# --- Selenium setup for GitHub Actions ---
 chrome_options = Options()
-chrome_options.add_argument("--headless")  # اجرای مرورگر در حالت نامرئی
+chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
-chrome_options.add_argument("--window-size=1920,1080") # اندازه پنجره برای اسکرین‌شات
+chrome_options.add_argument("--window-size=1920,1080")
 
 driver = webdriver.Chrome(options=chrome_options)
 
@@ -48,11 +48,20 @@ try:
 
     print("-> Opening Aparat login page...")
     driver.get("https://www.aparat.com/signin")
-    time.sleep(3)
+    time.sleep(3) # Wait for page to load
 
-    print("-> Entering username and password...")
-    driver.find_element(By.NAME, "username").send_keys(USERNAME)
-    driver.find_element(By.NAME, "password").send_keys(PASSWORD)
+    # ============================ THE FIX IS HERE ============================
+    # Using new, more stable selectors to find the input fields.
+    print("-> Locating and entering username...")
+    username_selector = "input[data-test='username-input']"
+    username_field = driver.find_element(By.CSS_SELECTOR, username_selector)
+    username_field.send_keys(USERNAME)
+
+    print("-> Locating and entering password...")
+    password_selector = "input[data-test='password-input']"
+    password_field = driver.find_element(By.CSS_SELECTOR, password_selector)
+    password_field.send_keys(PASSWORD)
+    # =======================================================================
     
     driver.save_screenshot('1_before_login_click.png')
     print("-> Submitting login form...")
@@ -60,23 +69,18 @@ try:
     time.sleep(5)
     
     driver.save_screenshot('2_after_login_click.png')
-    print("-> Checking login status by checking URL...")
+    print("-> Checking login status by inspecting URL...")
     if "signin" in driver.current_url:
-        raise Exception("Login failed, still on signin page. Check screenshot '2_after_login_click.png'. It might be a CAPTCHA.")
+        raise Exception("Login failed, still on signin page. Check screenshot '2_after_login_click.png'. A CAPTCHA is likely.")
 
     print("-> ✅ Login appears to be successful!")
-    
-    # اینجا می‌توانید ادامه کد برای آپلود را اضافه کنید
-    # اما اول تست کنیم که لاگین کار می‌کند یا نه
     
     print("\n\n✅✅✅ TEST SUCCEEDED: Login was successful! ✅✅✅\n\n")
 
 except Exception as e:
     print(f"\n❌ SCRIPT FAILED: {e}")
-    # در صورت خطا، یک اسکرین‌شات از صفحه می‌گیریم تا بفهمیم مشکل چیست
     driver.save_screenshot('error_screenshot.png')
     print("-> An error screenshot has been saved.")
-    # باعث می‌شویم گیت‌هاب اکشن شکست بخورد
     exit(1)
 
 finally:
