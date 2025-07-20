@@ -16,9 +16,10 @@ PASSWORD = os.environ.get("APARAT_PASSWORD")
 # --- تنظیمات ویدیو ---
 VIDEO_URL = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"
 LOCAL_VIDEO_FILENAME = "video_to_upload.mp4"
-VIDEO_TITLE = "ویدیوی گیم پلی (ناوبری نهایی)"
-VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و ناوبری نهایی."
-VIDEO_TAGS = ["گیم", "بازی آنلاین", "گیم پلی جدید"]
+VIDEO_TITLE = "ویدیوی گیم پلی (اصلاح برچسب)"
+VIDEO_DESCRIPTION = "یک ویدیوی جدید از بازی با اسکریپت کامل و اصلاح انتخاب برچسب."
+# لیست برچسب‌ها بر اساس درخواست شما به‌روز شد
+VIDEO_TAGS = ["گیم", "گیم پلی", "گیمر"] 
 VIDEO_CATEGORY = "ویدئو گیم" 
 
 # --- ثابت‌های سلنیوم ---
@@ -85,7 +86,6 @@ def final_login_strategy(driver, wait, username, password):
     
     # --- Final Verification ---
     print("-> Waiting for dashboard/homepage to confirm successful login...")
-    # Wait for the profile icon to be visible as a sign of successful login
     wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "a[href*='/dashboard']")))
     print("-> ✅ Login successful!")
 
@@ -112,21 +112,16 @@ try:
     # --- Use the new, final login strategy ---
     final_login_strategy(driver, wait, USERNAME, PASSWORD)
     
-    # ============================ CORRECTED ROBUST NAVIGATION ============================
-    # Instead of driver.get(), we click the upload button like a real user.
+    # --- Navigate to upload page by clicking the button ---
     print("\n-> Navigating to upload page by clicking the UI button...")
-    
-    # Find the "بارگذاری ویدیو" button using the correct XPath for a button element.
     upload_button = wait.until(
         EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'بارگذاری ویدیو')]"))
     )
-    print("-> Found the main upload button. Clicking it...")
     upload_button.click()
-    # ===================================================================================
 
     # --- Continue with the upload process ---
     print("-> Waiting for upload page to load...")
-    wait.until(EC.url_contains("upload")) # Verify we are on the correct page
+    wait.until(EC.url_contains("upload"))
     print("-> Upload page loaded successfully.")
 
     print("-> Selecting video file for upload...")
@@ -155,13 +150,36 @@ try:
     print(f"-> Category '{VIDEO_CATEGORY}' selected.")
     time.sleep(2)
 
-    print("-> Entering Tags...")
+    # ============================ NEW TAG SELECTION LOGIC ============================
+    print("-> Entering Tags (Selectable Method)...")
     tag_input = wait.until(EC.visibility_of_element_located((By.XPATH, "//div[@id='FField_tags']//input")))
+    
     for tag in VIDEO_TAGS:
+        print(f"-> Processing tag: '{tag}'")
+        tag_input.clear()
         tag_input.send_keys(tag)
-        tag_input.send_keys(Keys.ENTER)
-        print(f"  - Tag '{tag}' entered.")
-        time.sleep(1)
+        # Wait a moment for the suggestions to appear via AJAX
+        time.sleep(2) 
+        
+        # A robust XPath to find the suggestion. It looks for a list item that appears
+        # after typing, and its text exactly matches the tag.
+        suggestion_xpath = f"//ul[contains(@class, 'tag-suggestion-list')]//li[normalize-space()='{tag}']"
+        
+        try:
+            print(f"  - Waiting for suggestion '{tag}' to be clickable...")
+            suggestion_element = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, suggestion_xpath))
+            )
+            print(f"  - Found suggestion. Clicking it...")
+            suggestion_element.click()
+            print(f"  - ✅ Tag '{tag}' selected.")
+            time.sleep(1) # Wait for the UI to update after the tag is added
+        except TimeoutException:
+            print(f"  - ❌ Suggestion for '{tag}' not found. Adding with Enter key as a fallback.")
+            # If the suggestion isn't found, press Enter to add the tag as is.
+            tag_input.send_keys(Keys.ENTER)
+            time.sleep(1)
+    # ===================================================================================
 
     print("-> Taking a screenshot before publishing...")
     driver.save_screenshot('final_form_filled.png')
