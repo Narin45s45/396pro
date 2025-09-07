@@ -1,0 +1,40 @@
+name: Simple Feed Translator
+
+on:
+  schedule:
+    - cron: '0 * * * *' # هر ساعت یک بار
+  workflow_dispatch:
+
+jobs:
+  build-and-post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run the translation script
+        env:
+          WP_URL: ${{ secrets.WP_URL }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RSS_URL: ${{ secrets.RSS_URL }}
+          POST_STATUS: ${{ secrets.POST_STATUS }}
+
+      - name: Commit processed items list
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          if [ -f processed_items.txt ]; then
+            git add processed_items.txt
+            git diff --staged --quiet || git commit -m 'Update processed items list'
+            git push
+          fi
